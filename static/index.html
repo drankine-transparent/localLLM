@@ -6,30 +6,51 @@
   <title>Local LLM Productivity</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg-primary: #faf9f5;
-      --bg-secondary: #F5F4EF;
-      --bg-card: #ffffff;
-      --text-primary: #141413;
-      --text-secondary: #5c5c5a;
-      --text-muted: #8c8c8a;
-      --accent: #D97757;
-      --accent-hover: #c4684a;
-      --accent-subtle: rgba(217, 119, 87, 0.08);
-      --border: #e5e4df;
-      --border-light: #eeeee9;
-      --shadow: rgba(20, 20, 19, 0.04);
-      --shadow-hover: rgba(20, 20, 19, 0.08);
-      --green: #3a9a6e;
-      --red: #c44;
+      /* TP Teal palette */
+      --tp-teal-darkest: #023E4B;
+      --tp-teal-dark:    #0F5160;
+      --tp-teal-medium:  #468389;
+      --tp-teal-light:   #6AAFBA;
+      --tp-teal-lightest:#B8DDD8;
+      --tp-teal-ice:     #E4F2F0;
+      /* TP Orange */
+      --tp-orange:       #ED8339;
+      --tp-orange-light: #F4A96A;
+      /* Neutrals */
+      --tp-black:        #1A1A1A;
+      --tp-charcoal:     #333333;
+      --tp-gray-dark:    #555555;
+      --tp-gray-mid:     #888888;
+      --tp-gray-light:   #C8C8C8;
+      --tp-gray-lightest:#F0F0F0;
+      --tp-white:        #FFFFFF;
+
+      /* Semantic aliases */
+      --bg-primary:      #F7FAFA;
+      --bg-secondary:    #F0F0F0;
+      --bg-card:         #FFFFFF;
+      --text-primary:    #1A1A1A;
+      --text-secondary:  #555555;
+      --text-muted:      #888888;
+      --accent:          #0F5160;
+      --accent-hover:    #023E4B;
+      --accent-subtle:   #E4F2F0;
+      --border:          #C8C8C8;
+      --border-light:    #E0E0E0;
+      --shadow:          rgba(15, 81, 96, 0.06);
+      --shadow-hover:    rgba(15, 81, 96, 0.12);
+      --green:           #22C55E;
+      --red:             #EF4444;
+      --orange:          #ED8339;
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg-primary);
       color: var(--text-primary);
       height: 100vh;
@@ -37,6 +58,10 @@
       flex-direction: column;
       overflow: hidden;
       line-height: 1.5;
+    }
+
+    h1, h2, .column-title, .memory-file-name {
+      font-family: 'Poppins', sans-serif;
     }
 
     /* ── Scrollbars ── */
@@ -50,10 +75,12 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 24px;
-      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      background: var(--tp-teal-dark);
+      border-bottom: none;
       flex-shrink: 0;
       gap: 16px;
+      height: 52px;
     }
 
     .header-left {
@@ -63,51 +90,71 @@
       flex-shrink: 0;
     }
 
-    h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+    h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #FFFFFF;
+    }
 
     /* ── Nav tabs ── */
     .main-nav {
       display: flex;
-      gap: 2px;
-      background: var(--bg-secondary);
-      padding: 4px;
-      border-radius: 10px;
+      gap: 0;
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
       flex: 1;
       max-width: 560px;
+      height: 52px;
+      align-items: stretch;
     }
 
     .main-nav button {
       flex: 1;
       background: transparent;
       border: none;
-      padding: 7px 12px;
+      border-bottom: 3px solid transparent;
+      border-radius: 0;
+      padding: 0 14px;
       font-size: 13px;
-      font-weight: 500;
-      color: var(--text-muted);
-      border-radius: 7px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.65);
       cursor: pointer;
-      font-family: inherit;
-      transition: color 0.15s;
+      font-family: 'Source Sans 3', sans-serif;
+      transition: color 0.15s, border-color 0.15s;
       white-space: nowrap;
+      height: 52px;
     }
 
-    .main-nav button:hover { color: var(--text-primary); }
+    .main-nav button:hover { color: #FFFFFF; }
 
     .main-nav button.active {
-      background: var(--bg-card);
-      color: var(--text-primary);
-      box-shadow: 0 1px 4px var(--shadow);
+      background: transparent;
+      color: #FFFFFF;
+      font-weight: 700;
+      border-bottom-color: var(--tp-orange);
+      box-shadow: none;
     }
 
     /* ── Status ── */
     .status {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 12px; color: var(--text-muted);
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 4px 10px;
       flex-shrink: 0;
     }
+    .status span {
+      font-size: 12px; color: rgba(255,255,255,0.9);
+      font-family: 'Source Sans 3', sans-serif;
+      white-space: nowrap; max-width: 160px;
+      overflow: hidden; text-overflow: ellipsis;
+    }
     .status-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--red); transition: background 0.3s;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--tp-gray-mid); transition: background 0.3s;
       flex-shrink: 0;
     }
     .status-dot.connected { background: var(--green); }
@@ -230,20 +277,26 @@
     }
 
     .column-title {
+      font-family: 'Poppins', sans-serif;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      color: var(--text-secondary);
+      color: var(--tp-teal-dark);
     }
 
     .column-count {
-      background: var(--bg-card);
-      padding: 2px 8px;
+      background: var(--tp-teal-ice);
+      padding: 1px 7px;
       border-radius: 10px;
       font-size: 11px;
-      font-weight: 500;
-      color: var(--text-muted);
+      font-weight: 700;
+      font-family: 'Poppins', sans-serif;
+      color: var(--tp-teal-dark);
+    }
+    .column-count.count-high {
+      background: #FFF0E6;
+      color: var(--tp-orange);
     }
 
     .column-cards {
@@ -255,12 +308,16 @@
     .task-card {
       background: var(--bg-card);
       border: 1px solid var(--border-light);
-      border-radius: 12px;
+      border-left: 3px solid var(--tp-teal-medium);
+      border-radius: 0 8px 8px 0;
       padding: 16px 18px;
       margin-bottom: 10px;
       box-shadow: 0 1px 3px var(--shadow);
       transition: box-shadow 0.15s;
       position: relative;
+    }
+    .board-column[data-section="waiting"] .task-card {
+      border-left-color: var(--tp-orange);
     }
     .task-card:hover { box-shadow: 0 4px 14px var(--shadow-hover); }
     .task-card.is-done { opacity: 0.65; }
@@ -280,16 +337,15 @@
 
     /* Assignee badge (Waiting On tasks: "Aaron: ...") */
     .task-assignee {
-      display: inline-block;
-      font-size: 10px;
+      display: inline-flex;
+      font-size: 11px;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--accent);
-      background: var(--accent-subtle);
-      padding: 2px 7px;
-      border-radius: 4px;
-      margin-bottom: 6px;
+      font-family: 'Poppins', sans-serif;
+      color: var(--tp-teal-dark);
+      background: var(--tp-teal-ice);
+      padding: 1px 8px;
+      border-radius: 20px;
+      margin-bottom: 4px;
     }
 
     .task-card-title {
@@ -392,7 +448,7 @@
     .memory-sidebar {
       border-right: 1px solid var(--border);
       overflow-y: auto;
-      padding: 14px 10px 14px 16px;
+      padding: 16px 0;
     }
 
     .memory-main {
@@ -420,18 +476,40 @@
     .dirty-badge.visible { display: inline; }
 
     .memory-file-item {
-      padding: 6px 10px; border-radius: 6px; cursor: pointer;
+      padding: 6px 16px;
+      border-left: 3px solid transparent;
+      border-radius: 0;
+      cursor: pointer;
+      font-family: 'Source Sans 3', sans-serif;
       font-size: 13px; color: var(--text-secondary);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      transition: background 0.1s;
+      transition: background 0.1s, border-color 0.1s;
     }
-    .memory-file-item:hover { background: var(--bg-secondary); }
-    .memory-file-item.active { background: var(--accent-subtle); color: var(--accent); font-weight: 500; }
+    .memory-file-item:hover:not(.active) {
+      background: var(--tp-gray-lightest);
+      border-left-color: var(--tp-teal-light);
+    }
+    .memory-file-item.active {
+      background: var(--tp-teal-ice);
+      border-left-color: var(--tp-teal-dark);
+      color: var(--tp-teal-dark);
+      font-weight: 600;
+    }
 
     .memory-dir-label {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.07em; color: var(--text-muted);
-      padding: 12px 10px 4px; display: block;
+      font-family: 'Poppins', sans-serif;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--tp-teal-dark);
+      padding: 10px 16px 4px;
+      border-left: 3px solid var(--tp-teal-medium);
+      background: var(--tp-teal-ice);
+      margin: 8px 0 2px;
+      display: block;
+    }
+    .memory-dir-label.dir-root {
+      border-left-color: var(--tp-orange);
+      background: #FFF7F0;
+      color: #7B3F00;
     }
 
     .memory-editor {
@@ -572,6 +650,20 @@
     }
     .btn-suggestion-skip:hover { color: var(--text-primary); }
 
+    .chat-model-label {
+      font-size: 11px; color: var(--text-muted);
+      font-family: 'Source Sans 3', sans-serif;
+      padding: 0 2px 4px;
+      flex-shrink: 0;
+    }
+
+    .tool-description {
+      font-size: 13px; color: var(--text-muted);
+      font-family: 'Source Sans 3', sans-serif;
+      margin: 0 0 4px;
+      flex-shrink: 0;
+    }
+
     .chat-input-row {
       display: flex; gap: 8px; flex-shrink: 0;
     }
@@ -696,6 +788,7 @@
 ══════════════════════════════════════ -->
 <div class="panel" id="panel-decode">
   <div class="tool-panel">
+    <p class="tool-description">Expands workplace shorthand and acronyms using your glossary.</p>
     <textarea id="decodeInput"
       placeholder='Paste shorthand text (e.g. "ask todd about the PSR for phoenix")'></textarea>
     <div>
@@ -710,6 +803,7 @@
 ══════════════════════════════════════ -->
 <div class="panel" id="panel-search">
   <div class="tool-panel">
+    <p class="tool-description">Searches across all memory files — people, projects, glossary, and notes.</p>
     <input type="text" id="searchInput" placeholder="Search memory…" />
     <div>
       <button class="btn" onclick="searchMemory()">Search</button>
@@ -724,6 +818,7 @@
 <div class="panel" id="panel-chat">
   <div class="tool-panel">
     <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-model-label" id="chatModelLabel">—</div>
     <div class="chat-input-row">
       <input type="text" id="chatInput" placeholder="Ask something…"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}" />
@@ -768,6 +863,22 @@
     { id: 'done',    label: 'Done' },
   ];
 
+  // ── Chat empty state ───────────────────────────────────
+  function showChatEmptyState() {
+    const container = document.getElementById('chatMessages');
+    if (container && container.children.length === 0) {
+      container.innerHTML = `
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;
+                    justify-content:center;gap:8px;color:var(--text-muted);padding:32px;">
+          <div style="font-family:'Poppins',sans-serif;font-size:15px;font-weight:600;
+                      color:var(--tp-teal-dark);">What would you like to work on?</div>
+          <div style="font-size:13px;text-align:center;max-width:280px;line-height:1.5;">
+            Chat uses your memory context automatically — people, terms, and project notes.
+          </div>
+        </div>`;
+    }
+  }
+
   // ── Nav switching ──────────────────────────────────────
   document.querySelector('.main-nav').addEventListener('click', e => {
     const btn = e.target.closest('button');
@@ -777,6 +888,7 @@
     btn.classList.add('active');
     document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
     if (btn.dataset.panel === 'logs') loadLogs();
+    if (btn.dataset.panel === 'chat') showChatEmptyState();
   });
 
   // ── Health check ───────────────────────────────────────
@@ -786,12 +898,15 @@
       const d = await r.json();
       const dot = document.getElementById('statusDot');
       const txt = document.getElementById('statusText');
+      const modelLabel = document.getElementById('chatModelLabel');
       if (d.status === 'connected') {
         dot.classList.add('connected');
         txt.textContent = d.models?.[0] || 'Connected';
+        if (modelLabel) modelLabel.textContent = 'Model: ' + (d.models?.[0] || 'unknown');
       } else {
         dot.classList.remove('connected');
         txt.textContent = 'Disconnected';
+        if (modelLabel) modelLabel.textContent = 'Model: disconnected';
       }
     } catch {
       document.getElementById('statusDot').classList.remove('connected');
@@ -835,10 +950,11 @@
       col.className = 'board-column';
       col.dataset.section = sec.id;
 
+      const highClass = tasks.length >= 10 ? ' count-high' : '';
       col.innerHTML = `
         <div class="column-header">
           <span class="column-title">${sec.label}</span>
-          <span class="column-count" id="count-${sec.id}">${tasks.length}</span>
+          <span class="column-count${highClass}" id="count-${sec.id}">${tasks.length}</span>
         </div>
         <div class="column-cards" id="cards-${sec.id}">
           ${tasks.length === 0
@@ -1263,7 +1379,9 @@
     let html = '';
     allDirs.forEach(dir => {
       if (!dirs[dir]) return;
-      if (dir !== 'root') html += `<span class="memory-dir-label">${esc(dir)}</span>`;
+      const dirClass = dir === 'root' ? 'memory-dir-label dir-root' : 'memory-dir-label';
+      const dirLabel = dir === 'root' ? 'Files' : dir;
+      html += `<span class="${dirClass}">${esc(dirLabel)}</span>`;
       dirs[dir].forEach(f => {
         const active = currentMemoryFile === f.path ? ' active' : '';
         html += `<div class="memory-file-item${active}" onclick="openMemory('${esc(f.path)}')"
@@ -1391,6 +1509,10 @@
     if (!msg) return;
     input.value = '';
 
+    // Clear empty state if present
+    const chatContainer = document.getElementById('chatMessages');
+    if (chatContainer.querySelector('[style*="What would you like"]')) chatContainer.innerHTML = '';
+
     appendMsg('user', msg);
 
     const pending = document.createElement('div');
@@ -1488,7 +1610,21 @@
         container.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:13px;">No extractions logged yet.</div>';
         return;
       }
-      container.innerHTML = entries.map(formatLogEntry).join('');
+      const grouped = {};
+      entries.forEach(e => {
+        const d = new Date(e.timestamp + 'Z');
+        const key = d.toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric', year:'numeric' });
+        (grouped[key] = grouped[key] || []).push(e);
+      });
+      let html = '';
+      for (const [date, group] of Object.entries(grouped)) {
+        html += `<div style="font-family:'Poppins',sans-serif;font-size:11px;font-weight:700;
+                              text-transform:uppercase;letter-spacing:0.08em;
+                              color:var(--tp-teal-dark);padding:12px 0 6px;
+                              border-bottom:1px solid var(--border);margin-bottom:8px;">${esc(date)}</div>`;
+        html += group.map(formatLogEntry).join('');
+      }
+      container.innerHTML = html;
     } catch (e) {
       container.innerHTML = `<div style="padding:16px;color:#e55;font-size:13px;">Failed to load logs: ${esc(e.message)}</div>`;
     }
