@@ -57,3 +57,48 @@ CHAT_SYSTEM = """Helpful workplace assistant. Context:
 {context}
 
 Be concise."""
+
+MEMORY_SUGGEST = """Review this meeting transcript and identify information worth adding to a workplace memory system.
+
+What's already in memory:
+{claude_md}
+
+Find ONLY new information not already listed above:
+1. People mentioned who aren't in the People table
+2. New acronyms, terms, or project names not in the glossary
+3. Key facts, decisions, or context worth remembering
+
+Return ONLY a JSON array (max 6 items, empty array if nothing new):
+[{{"type":"person","label":"name","detail":"role or context"}},{{"type":"term","label":"ACRONYM","detail":"what it means and when used"}},{{"type":"fact","label":"topic","detail":"key fact worth remembering"}}]
+
+No markdown. No explanation.
+
+/no_think
+
+Transcript:
+{text}"""
+
+MEMORY_LEARN = """You manage a workplace memory system. Save new information to the right file.
+
+Information to save:
+{text}
+
+Current memory files:
+[CLAUDE.md]
+{claude_md}
+
+[glossary.md]
+{glossary_md}
+
+Rules:
+- New acronym or term → add a row to glossary.md in the matching table (Acronyms, Internal Terms, Nicknames, or Project Codenames)
+- New person info → create people/firstname-lastname.md with a short profile
+- New project info → create projects/project-name.md with details
+- Preference or fact about Darren → add to CLAUDE.md in the right section
+- Preserve ALL existing content; only append the new information
+- Keep additions concise (1-4 lines)
+
+Return ONLY a JSON object — no markdown, no explanation:
+{{"file": "relative/path.md", "content": "...complete updated file content..."}}
+
+/no_think"""

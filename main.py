@@ -3,7 +3,7 @@
 import json as _json
 import time
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -57,6 +57,14 @@ class ChatMessage(BaseModel):
     message: str
 
 
+class LearnInput(BaseModel):
+    text: str
+
+
+class SuggestInput(BaseModel):
+    text: str
+
+
 # --- Routes ---
 
 @app.get("/")
@@ -100,6 +108,7 @@ async def extract_tasks(body: TextInput):
             "input_chars": len(text),
             "started_at": extract_start,
             "chunks": [],
+            "current_chunk": None,
         }
 
         all_tasks = []
@@ -110,9 +119,15 @@ async def extract_tasks(body: TextInput):
         for idx, chunk in enumerate(chunks):
             chunk_start = time.monotonic()
             prompt = prompts.TASK_EXTRACTION.format(text=chunk)
-            cr = await llm.chat_with_usage(
+            _extract_status["current_chunk"] = {"index": idx + 1, "chars": 0, "tokens": 0}
+
+            def on_progress(chars: int, tokens: int, _idx: int = idx) -> None:
+                _extract_status["current_chunk"] = {"index": _idx + 1, "chars": chars, "tokens": tokens}
+
+            cr = await llm.chat_stream_with_usage(
                 "You are a precise task extractor. Output only valid JSON arrays. No markdown, no explanation.",
                 prompt,
+                on_progress=on_progress,
             )
             model_used = cr.model
             total_prompt_tokens += cr.prompt_tokens
@@ -131,6 +146,7 @@ async def extract_tasks(body: TextInput):
                 print(f"[EXTRACT] Chunk {idx+1} parse error: {e}")
 
             chunk_elapsed = round(time.monotonic() - chunk_start, 1)
+            _extract_status["current_chunk"] = None
             _extract_status["done_chunks"] = idx + 1
             _extract_status["chunks"].append({
                 "index": idx + 1,
@@ -253,6 +269,49 @@ async def decode_memory(body: TextInput):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/memory/learn")
+async def learn_memory(body: LearnInput):
+    try:
+        claude_md = prompts.truncate(memory.get_hot_cache(), 2000)
+        glossary_md = prompts.truncate(memory.get_glossary(), 2000)
+        prompt = prompts.MEMORY_LEARN.format(
+            text=prompts.truncate(body.text, 1000),
+            claude_md=claude_md,
+            glossary_md=glossary_md,
+        )
+        result = await llm.chat(
+            "You manage a memory file system. Return only valid JSON.", prompt
+        )
+        parsed = llm.parse_json(result)
+        if not isinstance(parsed, dict) or "file" not in parsed or "content" not in parsed:
+            raise ValueError(f"Unexpected LLM response: {result[:200]}")
+        saved = memory.write_file(parsed["file"], parsed["content"])
+        return {"saved": True, "file": parsed["file"], "size": saved["size"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/memory/suggest")
+async def suggest_memory(body: SuggestInput):
+    """Scan transcript for new people/terms/facts not already in memory."""
+    try:
+        claude_md = prompts.truncate(memory.get_hot_cache(), 1500)
+        prompt = prompts.MEMORY_SUGGEST.format(
+            claude_md=claude_md,
+            text=prompts.truncate(body.text, 8000),
+        )
+        result = await llm.chat(
+            "You identify new information worth adding to a memory system. Return only valid JSON.",
+            prompt,
+        )
+        suggestions = llm.parse_json(result)
+        if not isinstance(suggestions, list):
+            return []
+        return suggestions
+    except Exception:
+        return []  # Suggestions are optional — fail silently
+
+
 @app.post("/api/memory/search")
 async def search_memory(body: SearchQuery):
     try:
@@ -296,6 +355,31 @@ async def get_logs(limit: int = 20):
         except _json.JSONDecodeError:
             continue
     return entries
+
+
+@app.post("/api/parse-file")
+async def parse_file(file: UploadFile = File(...)):
+    """Extract plain text from an uploaded .txt, .md, or .pdf file."""
+    filename = file.filename or ""
+    ext = filename.rsplit(".", 1)[-1].lower()
+
+    if ext in ("txt", "md"):
+        content = await file.read()
+        return {"text": content.decode("utf-8", errors="replace"), "filename": filename}
+
+    if ext == "pdf":
+        import pypdf
+        import io
+        content = await file.read()
+        reader = pypdf.PdfReader(io.BytesIO(content))
+        pages = [page.extract_text() or "" for page in reader.pages]
+        text = "\n\n".join(p.strip() for p in pages if p.strip())
+        return {"text": text, "filename": filename}
+
+    raise HTTPException(
+        status_code=415,
+        detail=f"Unsupported file type: .{ext}. Use .txt, .md, or .pdf",
+    )
 
 
 # Mount static files last (catch-all)

@@ -169,6 +169,18 @@
       transition: border-color 0.15s;
     }
     .extract-area textarea:focus { border-color: var(--accent); outline: none; }
+    .extract-area textarea.drag-over { border-color: var(--accent); background: var(--accent-subtle); }
+    .extract-file-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .btn-upload {
+      font-size: 12px; padding: 5px 12px; background: transparent;
+      border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary);
+      cursor: pointer; font-family: inherit; transition: all 0.15s; flex-shrink: 0;
+    }
+    .btn-upload:hover { border-color: var(--accent); color: var(--accent); }
+    .file-label {
+      font-size: 12px; color: var(--text-muted); overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; flex: 1;
+    }
     .extract-buttons { margin-top: 8px; display: flex; gap: 8px; }
 
     /* Extract progress */
@@ -506,6 +518,59 @@
     .chat-msg-error { background: #fff5f5; border-color: #fcc; }
     .chat-msg-error .chat-msg-role { color: var(--red); }
     .chat-msg-text { color: var(--text-primary); white-space: pre-wrap; }
+    .chat-msg-actions { margin-top: 8px; display: flex; gap: 6px; }
+    .btn-save-memory {
+      font-size: 11px; padding: 3px 10px; background: transparent;
+      border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted);
+      cursor: pointer; font-family: inherit; transition: all 0.15s;
+    }
+    .btn-save-memory:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-save-memory:disabled { opacity: 0.5; cursor: default; }
+
+    .memory-suggestions {
+      margin-top: 12px; border: 1px solid var(--border);
+      border-radius: 8px; overflow: hidden;
+    }
+    .memory-suggestions-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; background: var(--bg-secondary);
+      font-size: 12px; font-weight: 600; color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    .suggestion-badge {
+      background: var(--accent); color: white; border-radius: 10px;
+      font-size: 10px; padding: 1px 6px; font-weight: 600;
+    }
+    .suggestion-card {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 12px; border-bottom: 1px solid var(--border-light);
+      background: var(--bg-card);
+    }
+    .suggestion-card:last-child { border-bottom: none; }
+    .suggestion-type {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; padding: 2px 7px; border-radius: 4px;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .suggestion-type.type-person { background: #e8f4fd; color: #1a6fa8; }
+    .suggestion-type.type-term   { background: #f0f0ff; color: #5555cc; }
+    .suggestion-type.type-fact   { background: #f0faf5; color: #2a7a50; }
+    .suggestion-content { flex: 1; min-width: 0; }
+    .suggestion-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+    .suggestion-detail { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .suggestion-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .btn-suggestion-add {
+      font-size: 11px; padding: 4px 10px; background: var(--accent);
+      color: white; border: none; border-radius: 6px; cursor: pointer; font-family: inherit;
+    }
+    .btn-suggestion-add:hover { background: var(--accent-hover); }
+    .btn-suggestion-add:disabled { opacity: 0.5; cursor: default; }
+    .btn-suggestion-skip {
+      font-size: 11px; padding: 4px 10px; background: transparent;
+      border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted);
+      cursor: pointer; font-family: inherit;
+    }
+    .btn-suggestion-skip:hover { color: var(--text-primary); }
 
     .chat-input-row {
       display: flex; gap: 8px; flex-shrink: 0;
@@ -576,6 +641,12 @@
   </div>
 
   <div class="extract-area" id="extractArea" style="display:none;">
+    <div class="extract-file-row">
+      <button class="btn-upload" onclick="document.getElementById('fileInput').click()">Upload file</button>
+      <span class="file-label" id="fileLabel">or paste text below · .txt, .md, .pdf</span>
+    </div>
+    <input type="file" id="fileInput" accept=".txt,.md,.pdf" style="display:none"
+      onchange="handleFileUpload(this.files[0])">
     <textarea id="extractText" placeholder="Paste meeting notes, emails, or any text — the LLM will extract tasks…"></textarea>
     <div class="extract-buttons">
       <button class="btn" id="extractBtn" onclick="extractTasks()">Extract Tasks</button>
@@ -586,6 +657,13 @@
         <div class="extract-progress-bar-fill" id="extractProgressFill"></div>
       </div>
       <div class="extract-log" id="extractLog"></div>
+    </div>
+    <div class="memory-suggestions" id="memorySuggestions" style="display:none;">
+      <div class="memory-suggestions-header">
+        <span>Memory suggestions</span>
+        <span id="suggestionBadge" class="suggestion-badge"></span>
+      </div>
+      <div id="suggestionCards"></div>
     </div>
   </div>
 
@@ -680,6 +758,8 @@
   let _extractStart   = null;
   let _lastDoneChunks = 0;
   let _runningLineEl  = null;
+  let _lastErrorMsg   = null;
+  let _autoCloseTimer = null;
 
   const SECTIONS = [
     { id: 'active',  label: 'Active' },
@@ -965,7 +1045,11 @@
       updateProgressBar(s.done_chunks, total);
       if (s.phase === 'running') {
         const next = s.done_chunks + 1;
-        const txt = `[${fmtTime(new Date())}] Chunk ${next}/${total} running…`;
+        const cc = s.current_chunk;
+        const liveInfo = cc && cc.tokens > 0
+          ? ` — ${cc.chars.toLocaleString()} chars · ~${cc.tokens.toLocaleString()} tokens`
+          : '';
+        const txt = `[${fmtTime(new Date())}] Chunk ${next}/${total} running…${liveInfo}`;
         if (_runningLineEl) _runningLineEl.textContent = txt;
         else _runningLineEl = appendLog(txt, 'log-running');
       }
@@ -977,13 +1061,17 @@
     }
     if (s.phase === 'error') {
       stopProgressPolling();
-      appendLog(`[${fmtTime(new Date())}] Error: ${s.message}`, 'log-error');
+      if (s.message !== _lastErrorMsg) {
+        _lastErrorMsg = s.message;
+        appendLog(`[${fmtTime(new Date())}] Error: ${s.message}`, 'log-error');
+      }
     }
   }
 
   function startProgressPolling() {
     _lastDoneChunks = 0;
     _runningLineEl = null;
+    _lastErrorMsg = null;
     _extractStart = Date.now();
     showProgressPanel();
     _pollInterval = setInterval(async () => {
@@ -994,14 +1082,130 @@
     }, 2000);
   }
 
+  // ── Memory suggestions ─────────────────────────────────
+  function showSuggestions(suggestions) {
+    const container = document.getElementById('memorySuggestions');
+    const cardsEl = document.getElementById('suggestionCards');
+    document.getElementById('suggestionBadge').textContent = suggestions.length;
+    cardsEl.innerHTML = '';
+    suggestions.forEach(s => {
+      const typeLabel = s.type === 'person' ? 'Person' : s.type === 'term' ? 'Term' : 'Fact';
+      const card = document.createElement('div');
+      card.className = 'suggestion-card';
+      card.innerHTML = `
+        <span class="suggestion-type type-${esc(s.type || 'fact')}">${typeLabel}</span>
+        <div class="suggestion-content">
+          <div class="suggestion-label">${esc(s.label)}</div>
+          <div class="suggestion-detail">${esc(s.detail)}</div>
+        </div>
+        <div class="suggestion-actions">
+          <button class="btn-suggestion-add">Add</button>
+          <button class="btn-suggestion-skip">Skip</button>
+        </div>`;
+      const addBtn = card.querySelector('.btn-suggestion-add');
+      addBtn.onclick = async () => {
+        addBtn.disabled = true;
+        addBtn.textContent = 'Adding…';
+        try {
+          const r = await fetch('/api/memory/learn', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ text: `${typeLabel}: ${s.label} — ${s.detail}` }),
+          });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.detail);
+          addBtn.textContent = 'Added';
+          toast(`Saved to ${d.file}`);
+          setTimeout(() => dismissSuggestionCard(card), 800);
+        } catch (e) {
+          addBtn.disabled = false;
+          addBtn.textContent = 'Add';
+          toast('Error: ' + e.message);
+        }
+      };
+      card.querySelector('.btn-suggestion-skip').onclick = () => dismissSuggestionCard(card);
+      cardsEl.appendChild(card);
+    });
+    container.style.display = '';
+  }
+
+  function dismissSuggestionCard(card) {
+    card.remove();
+    const remaining = document.getElementById('suggestionCards').children.length;
+    document.getElementById('suggestionBadge').textContent = remaining;
+    if (remaining === 0) {
+      document.getElementById('memorySuggestions').style.display = 'none';
+      if (_autoCloseTimer === null) { toggleExtract(); hideProgressPanel(); }
+    }
+  }
+
+  function hideSuggestions() {
+    document.getElementById('memorySuggestions').style.display = 'none';
+    document.getElementById('suggestionCards').innerHTML = '';
+  }
+
+  async function fetchMemorySuggestions(text) {
+    try {
+      appendLog(`[${fmtTime(new Date())}] Scanning for memory suggestions…`, 'log-running');
+      const r = await fetch('/api/memory/suggest', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ text }),
+      });
+      const suggestions = await r.json();
+      if (Array.isArray(suggestions) && suggestions.length) {
+        appendLog(`[${fmtTime(new Date())}] ${suggestions.length} memory suggestion${suggestions.length !== 1 ? 's' : ''} found`, 'log-done');
+        showSuggestions(suggestions);
+        _autoCloseTimer = null; // Stay open until user dismisses
+      } else {
+        appendLog(`[${fmtTime(new Date())}] No new memory suggestions`, 'log-done');
+        _autoCloseTimer = setTimeout(() => { toggleExtract(); hideProgressPanel(); }, 2000);
+      }
+    } catch {
+      _autoCloseTimer = setTimeout(() => { toggleExtract(); hideProgressPanel(); }, 2000);
+    }
+  }
+
   // Extract
   function toggleExtract() {
     const el = document.getElementById('extractArea');
     const btn = document.getElementById('extractToggleBtn');
     const isOpen = el.style.display !== 'none';
-    if (isOpen) { stopProgressPolling(); hideProgressPanel(); }
+    if (isOpen) {
+      stopProgressPolling();
+      hideProgressPanel();
+      hideSuggestions();
+      if (_autoCloseTimer && _autoCloseTimer !== 'pending') clearTimeout(_autoCloseTimer);
+      _autoCloseTimer = null;
+    }
     el.style.display = isOpen ? 'none' : '';
     btn.textContent = isOpen ? 'Extract' : 'Cancel';
+  }
+
+  async function handleFileUpload(file) {
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    const label = document.getElementById('fileLabel');
+    label.textContent = `Loading ${file.name}…`;
+    try {
+      let text;
+      if (ext === 'txt' || ext === 'md') {
+        text = await file.text();
+      } else if (ext === 'pdf') {
+        const form = new FormData();
+        form.append('file', file);
+        const r = await fetch('/api/parse-file', { method: 'POST', body: form });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || 'Parse failed');
+        text = d.text;
+      } else {
+        throw new Error('Unsupported file type. Use .txt, .md, or .pdf');
+      }
+      document.getElementById('extractText').value = text;
+      label.textContent = `${file.name} · ${(text.length / 1000).toFixed(1)}k chars`;
+      document.getElementById('fileInput').value = '';
+    } catch (e) {
+      label.textContent = 'or paste text below · .txt, .md, .pdf';
+      toast('Error: ' + e.message);
+    }
   }
 
   async function extractTasks() {
@@ -1028,7 +1232,8 @@
       toast(`Extracted ${d.extracted} task(s)`);
       document.getElementById('extractText').value = '';
       await loadTasks();
-      setTimeout(() => { toggleExtract(); hideProgressPanel(); }, 3000);
+      _autoCloseTimer = 'pending';
+      fetchMemorySuggestions(text);
     } catch (e) {
       stopProgressPolling();
       appendLog(`[${fmtTime(new Date())}] Error: ${e.message}`, 'log-error');
@@ -1204,13 +1409,42 @@
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail || 'Chat failed');
-      pending.querySelector('.chat-msg-text').textContent = d.response;
+      const response = d.response;
+      pending.querySelector('.chat-msg-text').textContent = response;
+      const actions = document.createElement('div');
+      actions.className = 'chat-msg-actions';
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'btn-save-memory';
+      saveBtn.textContent = 'Save to Memory';
+      saveBtn.onclick = () => saveToMemory(response, saveBtn);
+      actions.appendChild(saveBtn);
+      pending.appendChild(actions);
     } catch (e) {
       pending.className = 'chat-msg chat-msg-error';
       pending.querySelector('.chat-msg-role').textContent = 'Error';
       pending.querySelector('.chat-msg-text').textContent = e.message;
     }
     container.scrollTop = container.scrollHeight;
+  }
+
+  async function saveToMemory(text, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      const r = await fetch('/api/memory/learn', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ text }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || 'Save failed');
+      btn.textContent = `Saved → ${d.file}`;
+      toast(`Saved to ${d.file}`);
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Save to Memory';
+      toast('Error: ' + e.message);
+    }
   }
 
   // ══════════════════════════════════════════════════════
@@ -1259,6 +1493,21 @@
       container.innerHTML = `<div style="padding:16px;color:#e55;font-size:13px;">Failed to load logs: ${esc(e.message)}</div>`;
     }
   }
+
+  // ── File drag-and-drop on extract textarea ─────────────
+  const extractTA = document.getElementById('extractText');
+  extractTA.addEventListener('dragover', e => {
+    e.preventDefault();
+    extractTA.classList.add('drag-over');
+    if (document.getElementById('extractArea').style.display === 'none') toggleExtract();
+  });
+  extractTA.addEventListener('dragleave', () => extractTA.classList.remove('drag-over'));
+  extractTA.addEventListener('drop', e => {
+    e.preventDefault();
+    extractTA.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+  });
 
   // ── Init ──────────────────────────────────────────────
   checkHealth();
