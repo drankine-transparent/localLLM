@@ -230,21 +230,64 @@
     }
     .extract-buttons { margin-top: 8px; display: flex; gap: 8px; }
 
-    /* Extract progress */
-    .extract-progress { display:none; margin-top:12px; flex-direction:column; gap:8px; }
-    .extract-progress.visible { display:flex; }
-    .extract-progress-bar-wrap { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
-    .extract-progress-bar-fill { height:100%; width:0%; background:var(--accent); border-radius:3px; transition:width 0.4s ease; }
-    .extract-log {
-      font-family:'SF Mono','Fira Code',ui-monospace,monospace;
-      font-size:11.5px; line-height:1.6; color:var(--text-secondary);
-      background:var(--bg-card); border:1px solid var(--border);
-      border-radius:8px; padding:8px 12px; max-height:112px; overflow-y:auto;
+    /* ── Activity Bar ── */
+    .activity-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 900;
+      background: var(--tp-teal-darkest); color: white;
+      font-family: 'Source Sans 3', sans-serif;
+      border-top: 2px solid var(--tp-teal-medium);
+      transition: transform 0.25s ease;
     }
-    .extract-log-line { white-space:pre; }
-    .extract-log-line.log-done   { color:var(--green); }
-    .extract-log-line.log-error  { color:#e55; }
-    .extract-log-line.log-running { color:var(--accent); font-style:italic; }
+    .activity-bar.hidden { transform: translateY(100%); }
+
+    .activity-bar-strip {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; height: 38px; cursor: pointer; user-select: none;
+      gap: 12px;
+    }
+    .activity-bar-left {
+      display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+    }
+    .activity-status-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+      background: var(--tp-gray-mid); transition: background 0.3s;
+    }
+    .activity-status-dot.active {
+      background: var(--tp-orange);
+      animation: abar-pulse 1s ease-in-out infinite alternate;
+    }
+    .activity-status-dot.done { background: var(--green); animation: none; }
+    @keyframes abar-pulse { from { opacity: 1; } to { opacity: 0.35; } }
+
+    .activity-summary {
+      font-size: 12px; color: rgba(255,255,255,0.85);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .activity-count-badge {
+      background: rgba(255,255,255,0.15); border-radius: 10px;
+      font-size: 10px; font-weight: 700; padding: 1px 7px; flex-shrink: 0;
+      color: rgba(255,255,255,0.9);
+    }
+    .activity-expand-btn {
+      background: transparent; border: none; color: rgba(255,255,255,0.45);
+      font-size: 11px; cursor: pointer; font-family: inherit; flex-shrink: 0;
+      padding: 0; letter-spacing: 0.02em;
+    }
+    .activity-expand-btn:hover { color: white; }
+
+    .activity-log {
+      max-height: 200px; overflow-y: auto;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding: 6px 20px 10px;
+    }
+    .activity-log-line {
+      font-size: 11.5px; line-height: 1.85; color: rgba(255,255,255,0.7);
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      white-space: pre;
+    }
+    .activity-log-line.alog-done   { color: var(--green); }
+    .activity-log-line.alog-error  { color: #f87171; }
+    .activity-log-line.alog-running { color: var(--tp-orange-light); font-style: italic; }
 
     /* Board */
     .board {
@@ -744,12 +787,6 @@
       <button class="btn" id="extractBtn" onclick="extractTasks()">Extract Tasks</button>
       <button class="btn btn-secondary" onclick="toggleExtract()">Cancel</button>
     </div>
-    <div class="extract-progress" id="extractProgress">
-      <div class="extract-progress-bar-wrap">
-        <div class="extract-progress-bar-fill" id="extractProgressFill"></div>
-      </div>
-      <div class="extract-log" id="extractLog"></div>
-    </div>
     <div class="memory-suggestions" id="memorySuggestions" style="display:none;">
       <div class="memory-suggestions-header">
         <span>Memory suggestions</span>
@@ -842,6 +879,19 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- ── Activity Bar ── -->
+<div id="activityBar" class="activity-bar hidden">
+  <div class="activity-bar-strip" onclick="toggleActivityBar()">
+    <div class="activity-bar-left">
+      <div class="activity-status-dot" id="activityDot"></div>
+      <span class="activity-summary" id="activitySummary"></span>
+      <span class="activity-count-badge" id="activityCount" style="display:none;"></span>
+    </div>
+    <button class="activity-expand-btn" id="activityExpandBtn" onclick="event.stopPropagation();toggleActivityBar()">↑ Expand</button>
+  </div>
+  <div class="activity-log" id="activityLog" style="display:none;"></div>
+</div>
+
 <script>
   // ── State ──────────────────────────────────────────────
   let tasksData = null;
@@ -855,6 +905,82 @@
   let _runningLineEl  = null;
   let _lastErrorMsg   = null;
   let _autoCloseTimer = null;
+
+  // ── Activity Bar ──────────────────────────────────────
+  let _activityExpanded  = false;
+  let _activityCount     = 0;
+  let _activityHideTimer = null;
+  let _activityRunningEl = null;
+
+  function activityShow() {
+    document.getElementById('activityBar').classList.remove('hidden');
+    document.body.style.paddingBottom = '38px';
+    if (_activityHideTimer) { clearTimeout(_activityHideTimer); _activityHideTimer = null; }
+  }
+
+  function activityHide() {
+    document.getElementById('activityBar').classList.add('hidden');
+    document.body.style.paddingBottom = '';
+    _activityExpanded = false;
+    document.getElementById('activityLog').style.display = 'none';
+    document.getElementById('activityExpandBtn').textContent = '↑ Expand';
+  }
+
+  function activityScheduleHide() {
+    if (_activityHideTimer) clearTimeout(_activityHideTimer);
+    _activityHideTimer = setTimeout(activityHide, 8000);
+  }
+
+  function toggleActivityBar() {
+    _activityExpanded = !_activityExpanded;
+    const log = document.getElementById('activityLog');
+    const btn = document.getElementById('activityExpandBtn');
+    log.style.display = _activityExpanded ? 'block' : 'none';
+    btn.textContent = _activityExpanded ? '↓ Collapse' : '↑ Expand';
+  }
+
+  function activitySetStatus(state, summary) {
+    const dot = document.getElementById('activityDot');
+    dot.className = 'activity-status-dot' +
+      (state === 'active' ? ' active' : state === 'done' ? ' done' : '');
+    document.getElementById('activitySummary').textContent = summary;
+  }
+
+  function activityAppend(text, cls) {
+    _activityCount++;
+    const badge = document.getElementById('activityCount');
+    badge.textContent = _activityCount;
+    badge.style.display = '';
+    const log = document.getElementById('activityLog');
+    const el = document.createElement('div');
+    el.className = 'activity-log-line' + (cls ? ' ' + cls : '');
+    el.textContent = text;
+    log.insertBefore(el, log.firstChild);
+    return el;
+  }
+
+  function activityLogRunning(text) {
+    activityShow();
+    activitySetStatus('active', text);
+    if (_activityRunningEl) { _activityRunningEl.textContent = text; return _activityRunningEl; }
+    _activityRunningEl = activityAppend(text, 'alog-running');
+    return _activityRunningEl;
+  }
+
+  function activityLogDone(text) {
+    if (_activityRunningEl) { _activityRunningEl.remove(); _activityRunningEl = null; }
+    return activityAppend(text, 'alog-done');
+  }
+
+  function activityLogError(text) {
+    if (_activityRunningEl) { _activityRunningEl.remove(); _activityRunningEl = null; }
+    return activityAppend(text, 'alog-error');
+  }
+
+  function activityLogInfo(text) {
+    activityShow();
+    return activityAppend(text);
+  }
 
   const SECTIONS = [
     { id: 'active',  label: 'Active' },
@@ -1116,34 +1242,13 @@
     return r > 0 ? `${m}m ${r}s` : `${m}m`;
   }
 
-  function appendLog(text, cls) {
-    const log = document.getElementById('extractLog');
-    const el = document.createElement('div');
-    el.className = 'extract-log-line' + (cls ? ' ' + cls : '');
-    el.textContent = text;
-    log.appendChild(el);
-    log.scrollTop = log.scrollHeight;
-    return el;
-  }
-
-  function updateProgressBar(done, total) {
-    document.getElementById('extractProgressFill').style.width =
-      (total > 0 ? Math.round(done / total * 100) : 0) + '%';
-  }
-
-  function showProgressPanel() {
-    document.getElementById('extractProgress').classList.add('visible');
-    document.getElementById('extractLog').innerHTML = '';
-  }
-
-  function hideProgressPanel() {
-    document.getElementById('extractProgress').classList.remove('visible');
-  }
-
   function stopProgressPolling() {
     if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
     _runningLineEl = null;
   }
+
+  // Stub — hideProgressPanel called from dismissSuggestionCard; keep as no-op now
+  function hideProgressPanel() {}
 
   function applyStatusUpdate(s) {
     if (s.phase === 'idle') return;
@@ -1151,45 +1256,44 @@
       const total = s.total_chunks;
       const newChunks = (s.chunks || []).slice(_lastDoneChunks);
       newChunks.forEach(c => {
-        if (_runningLineEl) { _runningLineEl.remove(); _runningLineEl = null; }
-        appendLog(
-          `[${fmtTime(new Date())}] Chunk ${c.index}/${total} done — ${c.tasks_found} task${c.tasks_found !== 1 ? 's' : ''} · ${c.tokens.toLocaleString()} tokens · ${fmtDur(c.elapsed_seconds)}`,
-          'log-done'
+        if (_activityRunningEl) { _activityRunningEl.remove(); _activityRunningEl = null; }
+        activityLogDone(
+          `[${fmtTime(new Date())}] Chunk ${c.index}/${total} done — ${c.tasks_found} task${c.tasks_found !== 1 ? 's' : ''} · ${c.tokens.toLocaleString()} tokens · ${fmtDur(c.elapsed_seconds)}`
         );
       });
       _lastDoneChunks = (s.chunks || []).length;
-      updateProgressBar(s.done_chunks, total);
       if (s.phase === 'running') {
         const next = s.done_chunks + 1;
         const cc = s.current_chunk;
         const liveInfo = cc && cc.tokens > 0
           ? ` — ${cc.chars.toLocaleString()} chars · ~${cc.tokens.toLocaleString()} tokens`
           : '';
-        const txt = `[${fmtTime(new Date())}] Chunk ${next}/${total} running…${liveInfo}`;
-        if (_runningLineEl) _runningLineEl.textContent = txt;
-        else _runningLineEl = appendLog(txt, 'log-running');
+        activityLogRunning(`[${fmtTime(new Date())}] Chunk ${next}/${total} running…${liveInfo}`);
       }
       if (s.phase === 'done') {
         stopProgressPolling();
-        appendLog(`[${fmtTime(new Date())}] Done — ${s.extracted} task${s.extracted !== 1 ? 's' : ''} · ${fmtDur(s.duration_seconds)} total`, 'log-done');
-        updateProgressBar(total, total);
+        const summary = `Done — ${s.extracted} task${s.extracted !== 1 ? 's' : ''} · ${fmtDur(s.duration_seconds)} total`;
+        activityLogDone(`[${fmtTime(new Date())}] ${summary}`);
+        activitySetStatus('done', summary);
       }
     }
     if (s.phase === 'error') {
       stopProgressPolling();
       if (s.message !== _lastErrorMsg) {
         _lastErrorMsg = s.message;
-        appendLog(`[${fmtTime(new Date())}] Error: ${s.message}`, 'log-error');
+        activityLogError(`[${fmtTime(new Date())}] Error: ${s.message}`);
+        activitySetStatus('done', `Error: ${s.message}`);
+        activityScheduleHide();
       }
     }
   }
 
   function startProgressPolling() {
     _lastDoneChunks = 0;
-    _runningLineEl = null;
+    _activityRunningEl = null;
     _lastErrorMsg = null;
     _extractStart = Date.now();
-    showProgressPanel();
+    activityShow();
     _pollInterval = setInterval(async () => {
       try {
         const r = await fetch('/api/extract/status');
@@ -1222,6 +1326,8 @@
       addBtn.onclick = async () => {
         addBtn.disabled = true;
         addBtn.textContent = 'Adding…';
+        activityShow();
+        const runEl = activityLogRunning(`[${fmtTime(new Date())}] Adding memory: ${s.label}…`);
         try {
           const r = await fetch('/api/memory/learn', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1229,10 +1335,17 @@
           });
           const d = await r.json();
           if (!r.ok) throw new Error(d.detail);
+          if (runEl) { runEl.remove(); _activityRunningEl = null; }
+          activityLogDone(`[${fmtTime(new Date())}] Memory saved → ${d.file}`);
+          activitySetStatus('done', `Memory saved → ${d.file}`);
           addBtn.textContent = 'Added';
           toast(`Saved to ${d.file}`);
           setTimeout(() => dismissSuggestionCard(card), 800);
         } catch (e) {
+          if (runEl) { runEl.remove(); _activityRunningEl = null; }
+          activityLogError(`[${fmtTime(new Date())}] Error saving memory: ${e.message}`);
+          activitySetStatus('done', `Error: ${e.message}`);
+          activityScheduleHide();
           addBtn.disabled = false;
           addBtn.textContent = 'Add';
           toast('Error: ' + e.message);
@@ -1250,7 +1363,11 @@
     document.getElementById('suggestionBadge').textContent = remaining;
     if (remaining === 0) {
       document.getElementById('memorySuggestions').style.display = 'none';
-      if (_autoCloseTimer === null) { toggleExtract(); hideProgressPanel(); }
+      if (_autoCloseTimer === null) {
+        toggleExtract();
+        activitySetStatus('done', 'All done');
+        activityScheduleHide();
+      }
     }
   }
 
@@ -1261,22 +1378,26 @@
 
   async function fetchMemorySuggestions(text) {
     try {
-      appendLog(`[${fmtTime(new Date())}] Scanning for memory suggestions…`, 'log-running');
+      activityLogRunning(`[${fmtTime(new Date())}] Scanning for memory suggestions…`);
       const r = await fetch('/api/memory/suggest', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ text }),
       });
       const suggestions = await r.json();
       if (Array.isArray(suggestions) && suggestions.length) {
-        appendLog(`[${fmtTime(new Date())}] ${suggestions.length} memory suggestion${suggestions.length !== 1 ? 's' : ''} found`, 'log-done');
+        activityLogDone(`[${fmtTime(new Date())}] ${suggestions.length} memory suggestion${suggestions.length !== 1 ? 's' : ''} found`);
+        activitySetStatus('done', `${suggestions.length} memory suggestion${suggestions.length !== 1 ? 's' : ''} ready`);
         showSuggestions(suggestions);
         _autoCloseTimer = null; // Stay open until user dismisses
       } else {
-        appendLog(`[${fmtTime(new Date())}] No new memory suggestions`, 'log-done');
-        _autoCloseTimer = setTimeout(() => { toggleExtract(); hideProgressPanel(); }, 2000);
+        activityLogDone(`[${fmtTime(new Date())}] No new memory suggestions`);
+        activitySetStatus('done', 'No new memory suggestions');
+        activityScheduleHide();
+        _autoCloseTimer = setTimeout(() => { toggleExtract(); }, 2000);
       }
     } catch {
-      _autoCloseTimer = setTimeout(() => { toggleExtract(); hideProgressPanel(); }, 2000);
+      activityScheduleHide();
+      _autoCloseTimer = setTimeout(() => { toggleExtract(); }, 2000);
     }
   }
 
@@ -1334,7 +1455,8 @@
       ? `<span class="spinner"></span> Extracting… (${chunkCount} chunks)`
       : `<span class="spinner"></span> Extracting…`;
     startProgressPolling();
-    appendLog(`[${fmtTime(new Date())}] Starting — ${chunkCount} chunk${chunkCount !== 1 ? 's' : ''}, ${(text.length / 1000).toFixed(1)}k chars`);
+    activitySetStatus('active', `Extracting — ${chunkCount} chunk${chunkCount !== 1 ? 's' : ''}, ${(text.length / 1000).toFixed(1)}k chars`);
+    activityLogInfo(`[${fmtTime(new Date())}] Starting — ${chunkCount} chunk${chunkCount !== 1 ? 's' : ''}, ${(text.length / 1000).toFixed(1)}k chars`);
     try {
       const r = await fetch('/api/tasks/extract', {
         method: 'POST',
@@ -1352,7 +1474,9 @@
       fetchMemorySuggestions(text);
     } catch (e) {
       stopProgressPolling();
-      appendLog(`[${fmtTime(new Date())}] Error: ${e.message}`, 'log-error');
+      activityLogError(`[${fmtTime(new Date())}] Error: ${e.message}`);
+      activitySetStatus('done', `Error: ${e.message}`);
+      activityScheduleHide();
       toast('Error: ' + e.message);
     } finally {
       btn.disabled = false;
@@ -1552,6 +1676,9 @@
   async function saveToMemory(text, btn) {
     btn.disabled = true;
     btn.textContent = 'Saving…';
+    activityShow();
+    activityLogRunning(`[${fmtTime(new Date())}] Saving to memory…`);
+    activitySetStatus('active', 'Saving to memory…');
     try {
       const r = await fetch('/api/memory/learn', {
         method: 'POST',
@@ -1560,9 +1687,15 @@
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail || 'Save failed');
+      activityLogDone(`[${fmtTime(new Date())}] Memory saved → ${d.file}`);
+      activitySetStatus('done', `Memory saved → ${d.file}`);
+      activityScheduleHide();
       btn.textContent = `Saved → ${d.file}`;
       toast(`Saved to ${d.file}`);
     } catch (e) {
+      activityLogError(`[${fmtTime(new Date())}] Error: ${e.message}`);
+      activitySetStatus('done', `Error: ${e.message}`);
+      activityScheduleHide();
       btn.disabled = false;
       btn.textContent = 'Save to Memory';
       toast('Error: ' + e.message);
