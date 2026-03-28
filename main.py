@@ -18,6 +18,7 @@ app = FastAPI(title="Local LLM Productivity")
 
 STATIC_DIR = Path(__file__).parent / "static"
 LOG_PATH = Path(__file__).parent / "data" / "logs" / "extract_log.jsonl"
+_extract_status: dict = {"phase": "idle"}
 
 
 def write_extract_log(entry: dict) -> None:
@@ -83,23 +84,31 @@ async def create_task(body: TaskCreate):
 
 @app.post("/api/tasks/extract")
 async def extract_tasks(body: TextInput):
+    global _extract_status
     try:
-        # Split long text into chunks and extract from each
         chunk_size = prompts.MAX_INPUT_CHARS
         text = body.text
-        chunks = []
-        for i in range(0, len(text), chunk_size):
-            chunks.append(text[i:i + chunk_size])
+        chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
 
         print(f"[EXTRACT] Processing {len(chunks)} chunk(s) from {len(text)} chars")
 
-        start_time = time.monotonic()
+        extract_start = time.monotonic()
+        _extract_status = {
+            "phase": "running",
+            "total_chunks": len(chunks),
+            "done_chunks": 0,
+            "input_chars": len(text),
+            "started_at": extract_start,
+            "chunks": [],
+        }
+
         all_tasks = []
         total_prompt_tokens = 0
         total_completion_tokens = 0
         model_used = "unknown"
 
         for idx, chunk in enumerate(chunks):
+            chunk_start = time.monotonic()
             prompt = prompts.TASK_EXTRACTION.format(text=chunk)
             cr = await llm.chat_with_usage(
                 "You are a precise task extractor. Output only valid JSON arrays. No markdown, no explanation.",
@@ -110,15 +119,25 @@ async def extract_tasks(body: TextInput):
             total_completion_tokens += cr.completion_tokens
 
             print(f"[EXTRACT] Chunk {idx+1} raw: {cr.content[:300]}")
+            chunk_tasks = []
             try:
                 result = llm.parse_json(cr.content)
                 if isinstance(result, dict):
                     result = result.get("tasks", [result])
                 if isinstance(result, list):
+                    chunk_tasks = result
                     all_tasks.extend(result)
             except (ValueError, Exception) as e:
                 print(f"[EXTRACT] Chunk {idx+1} parse error: {e}")
-                continue
+
+            chunk_elapsed = round(time.monotonic() - chunk_start, 1)
+            _extract_status["done_chunks"] = idx + 1
+            _extract_status["chunks"].append({
+                "index": idx + 1,
+                "tasks_found": len(chunk_tasks),
+                "tokens": cr.prompt_tokens + cr.completion_tokens,
+                "elapsed_seconds": chunk_elapsed,
+            })
 
         # Deduplicate by title (case-insensitive)
         seen = set()
@@ -138,7 +157,7 @@ async def extract_tasks(body: TextInput):
             )
             added.append(task)
 
-        duration = round(time.monotonic() - start_time, 1)
+        duration = round(time.monotonic() - extract_start, 1)
         write_extract_log({
             "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
             "model": model_used,
@@ -151,11 +170,26 @@ async def extract_tasks(body: TextInput):
             "input_chars": len(text),
         })
 
+        _extract_status["phase"] = "done"
+        _extract_status["duration_seconds"] = duration
+        _extract_status["extracted"] = len(added)
+
         print(f"[EXTRACT] Total: {len(added)} unique tasks from {len(all_tasks)} raw")
         return {"extracted": len(added), "tasks": added}
     except Exception as e:
+        _extract_status = {"phase": "error", "message": str(e)}
         print(f"[EXTRACT] Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/extract/status")
+async def extract_status():
+    """Return current extraction progress state."""
+    s = _extract_status.copy()
+    if s.get("phase") == "running":
+        s["elapsed_seconds"] = round(time.monotonic() - s["started_at"], 1)
+    s.pop("started_at", None)
+    return s
 
 
 @app.put("/api/tasks/{task_id}/toggle")

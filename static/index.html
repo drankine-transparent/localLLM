@@ -171,6 +171,22 @@
     .extract-area textarea:focus { border-color: var(--accent); outline: none; }
     .extract-buttons { margin-top: 8px; display: flex; gap: 8px; }
 
+    /* Extract progress */
+    .extract-progress { display:none; margin-top:12px; flex-direction:column; gap:8px; }
+    .extract-progress.visible { display:flex; }
+    .extract-progress-bar-wrap { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+    .extract-progress-bar-fill { height:100%; width:0%; background:var(--accent); border-radius:3px; transition:width 0.4s ease; }
+    .extract-log {
+      font-family:'SF Mono','Fira Code',ui-monospace,monospace;
+      font-size:11.5px; line-height:1.6; color:var(--text-secondary);
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:8px; padding:8px 12px; max-height:112px; overflow-y:auto;
+    }
+    .extract-log-line { white-space:pre; }
+    .extract-log-line.log-done   { color:var(--green); }
+    .extract-log-line.log-error  { color:#e55; }
+    .extract-log-line.log-running { color:var(--accent); font-style:italic; }
+
     /* Board */
     .board {
       display: flex;
@@ -565,6 +581,12 @@
       <button class="btn" id="extractBtn" onclick="extractTasks()">Extract Tasks</button>
       <button class="btn btn-secondary" onclick="toggleExtract()">Cancel</button>
     </div>
+    <div class="extract-progress" id="extractProgress">
+      <div class="extract-progress-bar-wrap">
+        <div class="extract-progress-bar-fill" id="extractProgressFill"></div>
+      </div>
+      <div class="extract-log" id="extractLog"></div>
+    </div>
   </div>
 
   <div class="board" id="board">
@@ -652,6 +674,12 @@
   let tasksData = null;
   let currentMemoryFile = null;
   let memoryDirty = false;
+
+  // --- Extract progress state ---
+  let _pollInterval   = null;
+  let _extractStart   = null;
+  let _lastDoneChunks = 0;
+  let _runningLineEl  = null;
 
   const SECTIONS = [
     { id: 'active',  label: 'Active' },
@@ -880,11 +908,98 @@
     toast('Task deleted');
   }
 
+  // ══════════════════════════════════════════════════════
+  // EXTRACT PROGRESS
+  // ══════════════════════════════════════════════════════
+
+  function fmtTime(d) { return (d instanceof Date ? d : new Date(d)).toTimeString().slice(0,8); }
+  function fmtDur(s) {
+    s = Math.round(s);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60), r = s % 60;
+    return r > 0 ? `${m}m ${r}s` : `${m}m`;
+  }
+
+  function appendLog(text, cls) {
+    const log = document.getElementById('extractLog');
+    const el = document.createElement('div');
+    el.className = 'extract-log-line' + (cls ? ' ' + cls : '');
+    el.textContent = text;
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+    return el;
+  }
+
+  function updateProgressBar(done, total) {
+    document.getElementById('extractProgressFill').style.width =
+      (total > 0 ? Math.round(done / total * 100) : 0) + '%';
+  }
+
+  function showProgressPanel() {
+    document.getElementById('extractProgress').classList.add('visible');
+    document.getElementById('extractLog').innerHTML = '';
+  }
+
+  function hideProgressPanel() {
+    document.getElementById('extractProgress').classList.remove('visible');
+  }
+
+  function stopProgressPolling() {
+    if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
+    _runningLineEl = null;
+  }
+
+  function applyStatusUpdate(s) {
+    if (s.phase === 'idle') return;
+    if (s.phase === 'running' || s.phase === 'done') {
+      const total = s.total_chunks;
+      const newChunks = (s.chunks || []).slice(_lastDoneChunks);
+      newChunks.forEach(c => {
+        if (_runningLineEl) { _runningLineEl.remove(); _runningLineEl = null; }
+        appendLog(
+          `[${fmtTime(new Date())}] Chunk ${c.index}/${total} done — ${c.tasks_found} task${c.tasks_found !== 1 ? 's' : ''} · ${c.tokens.toLocaleString()} tokens · ${fmtDur(c.elapsed_seconds)}`,
+          'log-done'
+        );
+      });
+      _lastDoneChunks = (s.chunks || []).length;
+      updateProgressBar(s.done_chunks, total);
+      if (s.phase === 'running') {
+        const next = s.done_chunks + 1;
+        const txt = `[${fmtTime(new Date())}] Chunk ${next}/${total} running…`;
+        if (_runningLineEl) _runningLineEl.textContent = txt;
+        else _runningLineEl = appendLog(txt, 'log-running');
+      }
+      if (s.phase === 'done') {
+        stopProgressPolling();
+        appendLog(`[${fmtTime(new Date())}] Done — ${s.extracted} task${s.extracted !== 1 ? 's' : ''} · ${fmtDur(s.duration_seconds)} total`, 'log-done');
+        updateProgressBar(total, total);
+      }
+    }
+    if (s.phase === 'error') {
+      stopProgressPolling();
+      appendLog(`[${fmtTime(new Date())}] Error: ${s.message}`, 'log-error');
+    }
+  }
+
+  function startProgressPolling() {
+    _lastDoneChunks = 0;
+    _runningLineEl = null;
+    _extractStart = Date.now();
+    showProgressPanel();
+    _pollInterval = setInterval(async () => {
+      try {
+        const r = await fetch('/api/extract/status');
+        applyStatusUpdate(await r.json());
+      } catch {}
+    }, 2000);
+  }
+
   // Extract
   function toggleExtract() {
     const el = document.getElementById('extractArea');
     const btn = document.getElementById('extractToggleBtn');
     const isOpen = el.style.display !== 'none';
+    if (isOpen) { stopProgressPolling(); hideProgressPanel(); }
     el.style.display = isOpen ? 'none' : '';
     btn.textContent = isOpen ? 'Extract' : 'Cancel';
   }
@@ -895,10 +1010,11 @@
     const btn = document.getElementById('extractBtn');
     btn.disabled = true;
     const chunkCount = Math.ceil(text.length / 12000);
-    const statusLabel = chunkCount > 1
+    btn.innerHTML = chunkCount > 1
       ? `<span class="spinner"></span> Extracting… (${chunkCount} chunks)`
       : `<span class="spinner"></span> Extracting…`;
-    btn.innerHTML = statusLabel;
+    startProgressPolling();
+    appendLog(`[${fmtTime(new Date())}] Starting — ${chunkCount} chunk${chunkCount !== 1 ? 's' : ''}, ${(text.length / 1000).toFixed(1)}k chars`);
     try {
       const r = await fetch('/api/tasks/extract', {
         method: 'POST',
@@ -907,11 +1023,15 @@
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail || 'Extraction failed');
+      // Force one final status read to ensure done line appears
+      try { applyStatusUpdate(await (await fetch('/api/extract/status')).json()); } catch {}
       toast(`Extracted ${d.extracted} task(s)`);
       document.getElementById('extractText').value = '';
-      toggleExtract();
       await loadTasks();
+      setTimeout(() => { toggleExtract(); hideProgressPanel(); }, 3000);
     } catch (e) {
+      stopProgressPolling();
+      appendLog(`[${fmtTime(new Date())}] Error: ${e.message}`, 'log-error');
       toast('Error: ' + e.message);
     } finally {
       btn.disabled = false;
