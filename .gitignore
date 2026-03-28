@@ -4,3 +4,6 @@ venv/
 .env
 *.log
 .claude/
+data/TASKS.md
+data/logs/
+data/memory/memory/

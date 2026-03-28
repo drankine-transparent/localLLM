@@ -45,14 +45,14 @@ Single-page app — all frontend in one file, served by FastAPI.
 ## Testing
 
 - `tests/test_streaming.py` — 7 unit tests covering `chat_stream_with_usage()` and extract status
-- Always run `pytest tests/ -v` before declaring work complete
 - Tests mock the OpenAI client — no LM Studio needed
+- Run `pytest tests/ -v` before declaring any work complete
 
 ---
 
 ## What NOT to do
 
-- Do not skip `source venv/bin/activate` — system Python 3.14 is missing project deps
+- Always activate venv first — system Python on this machine is 3.14
 - Do not edit `data/TASKS.md` or `data/memory/CLAUDE.md` directly in code sessions
 - Do not add separate `.css` or `.js` files — keep everything in `static/index.html`
 - Do not hardcode hex colors — use CSS variables from `:root`
