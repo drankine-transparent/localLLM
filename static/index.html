@@ -73,7 +73,7 @@
       padding: 4px;
       border-radius: 10px;
       flex: 1;
-      max-width: 480px;
+      max-width: 560px;
     }
 
     .main-nav button {
@@ -539,6 +539,7 @@
     <button data-panel="decode">Decode</button>
     <button data-panel="search">Search</button>
     <button data-panel="chat">Chat</button>
+    <button data-panel="logs">Logs</button>
   </nav>
 
   <div class="status">
@@ -631,6 +632,19 @@
   </div>
 </div>
 
+<!-- ══════════════════════════════════════
+     LOGS PANEL
+══════════════════════════════════════ -->
+<div class="panel" id="panel-logs">
+  <div class="tool-panel">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+      <h2 style="font-size:14px; font-weight:600; color:var(--text-secondary); margin:0;">Extraction Log</h2>
+      <button class="btn btn-secondary" style="font-size:12px; padding:5px 12px;" onclick="loadLogs()">Refresh</button>
+    </div>
+    <div id="logsContainer" style="flex:1; overflow-y:auto; margin-top:8px;"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -654,6 +668,7 @@
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+    if (btn.dataset.panel === 'logs') loadLogs();
   });
 
   // ── Health check ───────────────────────────────────────
@@ -879,7 +894,11 @@
     if (!text) return;
     const btn = document.getElementById('extractBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Extracting…';
+    const chunkCount = Math.ceil(text.length / 12000);
+    const statusLabel = chunkCount > 1
+      ? `<span class="spinner"></span> Extracting… (${chunkCount} chunks)`
+      : `<span class="spinner"></span> Extracting…`;
+    btn.innerHTML = statusLabel;
     try {
       const r = await fetch('/api/tasks/extract', {
         method: 'POST',
@@ -1072,6 +1091,53 @@
       pending.querySelector('.chat-msg-text').textContent = e.message;
     }
     container.scrollTop = container.scrollHeight;
+  }
+
+  // ══════════════════════════════════════════════════════
+  // LOGS
+  // ══════════════════════════════════════════════════════
+
+  function formatLogEntry(e) {
+    const d = new Date(e.timestamp + 'Z');
+    const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const modelShort = (e.model || 'unknown').split('/').pop();
+    const tokens = (e.total_tokens || 0).toLocaleString();
+    const ptok = (e.prompt_tokens || 0).toLocaleString();
+    const ctok = (e.completion_tokens || 0).toLocaleString();
+    return `
+      <div style="background:var(--bg-card);border:1px solid var(--border-light);
+                  border-radius:10px;padding:14px 16px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+          <span style="font-size:13px;font-weight:600;color:var(--text-primary);">
+            ${esc(dateStr)} at ${esc(timeStr)}
+          </span>
+          <span style="font-size:11px;color:var(--text-muted);">${esc(modelShort)}</span>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);">
+          <span>${e.action_items} action item${e.action_items !== 1 ? 's' : ''}</span>
+          <span>${e.duration_seconds}s</span>
+          <span>${tokens} tokens <span style="color:var(--text-muted);">(${ptok} in + ${ctok} out)</span></span>
+          <span>${e.chunks} chunk${e.chunks !== 1 ? 's' : ''}</span>
+          <span>${((e.input_chars || 0) / 1000).toFixed(1)}k chars</span>
+        </div>
+      </div>`;
+  }
+
+  async function loadLogs() {
+    const container = document.getElementById('logsContainer');
+    container.innerHTML = '<div style="padding:8px;"><span class="spinner"></span></div>';
+    try {
+      const r = await fetch('/api/logs?limit=50');
+      const entries = await r.json();
+      if (!entries.length) {
+        container.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:13px;">No extractions logged yet.</div>';
+        return;
+      }
+      container.innerHTML = entries.map(formatLogEntry).join('');
+    } catch (e) {
+      container.innerHTML = `<div style="padding:16px;color:#e55;font-size:13px;">Failed to load logs: ${esc(e.message)}</div>`;
+    }
   }
 
   // ── Init ──────────────────────────────────────────────

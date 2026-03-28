@@ -1,5 +1,6 @@
 """LM Studio client using OpenAI-compatible API."""
 
+from dataclasses import dataclass
 from openai import OpenAI
 import json
 
@@ -42,6 +43,47 @@ async def chat(system_prompt: str, user_message: str) -> str:
         temperature=0.3,
     )
     return response.choices[0].message.content
+
+
+@dataclass
+class ChatResult:
+    content: str
+    model: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
+async def chat_with_usage(system_prompt: str, user_message: str) -> ChatResult:
+    """Same as chat() but returns content + token usage."""
+    try:
+        models = client.models.list()
+        model_list = [m.id for m in models.data]
+    except Exception as e:
+        raise RuntimeError("Cannot reach LM Studio. Is it running?") from e
+
+    if not model_list:
+        raise RuntimeError(
+            "No model is loaded in LM Studio. "
+            "Open LM Studio, go to the Developer tab, and load a model."
+        )
+
+    response = client.chat.completions.create(
+        model=model_list[0],
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        temperature=0.3,
+    )
+    usage = response.usage
+    return ChatResult(
+        content=response.choices[0].message.content,
+        model=response.model,
+        prompt_tokens=usage.prompt_tokens if usage else 0,
+        completion_tokens=usage.completion_tokens if usage else 0,
+        total_tokens=usage.total_tokens if usage else 0,
+    )
 
 
 def parse_json(text: str) -> list | dict:

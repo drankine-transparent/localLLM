@@ -1,5 +1,8 @@
 """FastAPI app — Local LLM Productivity System."""
 
+import json as _json
+import time
+from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -14,6 +17,14 @@ import prompts
 app = FastAPI(title="Local LLM Productivity")
 
 STATIC_DIR = Path(__file__).parent / "static"
+LOG_PATH = Path(__file__).parent / "data" / "logs" / "extract_log.jsonl"
+
+
+def write_extract_log(entry: dict) -> None:
+    """Append one JSON line to the extraction log."""
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(_json.dumps(entry) + "\n")
 
 
 # --- Pydantic models ---
@@ -82,16 +93,25 @@ async def extract_tasks(body: TextInput):
 
         print(f"[EXTRACT] Processing {len(chunks)} chunk(s) from {len(text)} chars")
 
+        start_time = time.monotonic()
         all_tasks = []
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        model_used = "unknown"
+
         for idx, chunk in enumerate(chunks):
             prompt = prompts.TASK_EXTRACTION.format(text=chunk)
-            raw = await llm.chat(
-            "You are a precise task extractor. Output only valid JSON arrays. No markdown, no explanation.",
-            prompt
-        )
-            print(f"[EXTRACT] Chunk {idx+1} raw: {raw[:300]}")
+            cr = await llm.chat_with_usage(
+                "You are a precise task extractor. Output only valid JSON arrays. No markdown, no explanation.",
+                prompt,
+            )
+            model_used = cr.model
+            total_prompt_tokens += cr.prompt_tokens
+            total_completion_tokens += cr.completion_tokens
+
+            print(f"[EXTRACT] Chunk {idx+1} raw: {cr.content[:300]}")
             try:
-                result = llm.parse_json(raw)
+                result = llm.parse_json(cr.content)
                 if isinstance(result, dict):
                     result = result.get("tasks", [result])
                 if isinstance(result, list):
@@ -117,6 +137,19 @@ async def extract_tasks(body: TextInput):
                 context=item.get("context"),
             )
             added.append(task)
+
+        duration = round(time.monotonic() - start_time, 1)
+        write_extract_log({
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+            "model": model_used,
+            "duration_seconds": duration,
+            "prompt_tokens": total_prompt_tokens,
+            "completion_tokens": total_completion_tokens,
+            "total_tokens": total_prompt_tokens + total_completion_tokens,
+            "chunks": len(chunks),
+            "action_items": len(added),
+            "input_chars": len(text),
+        })
 
         print(f"[EXTRACT] Total: {len(added)} unique tasks from {len(all_tasks)} raw")
         return {"extracted": len(added), "tasks": added}
@@ -212,6 +245,23 @@ async def chat_endpoint(body: ChatMessage):
         return {"response": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Logs ---
+
+@app.get("/api/logs")
+async def get_logs(limit: int = 20):
+    """Return last `limit` extraction log entries, newest first."""
+    if not LOG_PATH.exists():
+        return []
+    lines = LOG_PATH.read_text(encoding="utf-8").strip().splitlines()
+    entries = []
+    for line in reversed(lines[-limit:]):
+        try:
+            entries.append(_json.loads(line))
+        except _json.JSONDecodeError:
+            continue
+    return entries
 
 
 # Mount static files last (catch-all)
