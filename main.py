@@ -40,6 +40,10 @@ class TaskMove(BaseModel):
     section: str
 
 
+class SubtaskCreate(BaseModel):
+    text: str
+
+
 class TextInput(BaseModel):
     text: str
 
@@ -227,6 +231,30 @@ async def delete(task_id: str):
     if not tasks.delete_task(task_id):
         raise HTTPException(status_code=404, detail="Task not found")
     return {"deleted": True}
+
+
+@app.post("/api/tasks/{task_id}/subtasks")
+async def add_subtask(task_id: str, body: SubtaskCreate):
+    task = tasks.add_subtask(task_id, body.text)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+
+@app.put("/api/tasks/{task_id}/subtasks/{sub_idx}/toggle")
+async def toggle_subtask(task_id: str, sub_idx: int):
+    task = tasks.toggle_subtask(task_id, sub_idx)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return task
+
+
+@app.delete("/api/tasks/{task_id}/subtasks/{sub_idx}")
+async def delete_subtask(task_id: str, sub_idx: int):
+    task = tasks.delete_subtask(task_id, sub_idx)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return task
 
 
 # --- Memory ---

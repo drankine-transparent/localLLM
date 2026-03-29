@@ -529,14 +529,54 @@
       padding: 16px 18px;
       margin-bottom: 10px;
       box-shadow: 0 1px 3px var(--shadow);
-      transition: box-shadow 0.15s;
+      transition: box-shadow 0.15s, opacity 0.15s;
       position: relative;
+      cursor: grab;
     }
     .board-column[data-section="waiting"] .task-card {
       border-left-color: var(--tp-orange);
     }
     .task-card:hover { box-shadow: 0 4px 14px var(--shadow-hover); }
     .task-card.is-done { opacity: 0.65; }
+    .task-card.dragging { opacity: 0.35; cursor: grabbing; }
+    .column-cards.drag-over { background: var(--tp-teal-ice); border-radius: 6px; }
+    .drop-indicator {
+      height: 3px; background: var(--tp-teal-dark);
+      border-radius: 2px; margin: 4px 0; pointer-events: none;
+    }
+
+    .task-subtasks {
+      margin-top: 10px; padding-top: 8px;
+      border-top: 1px solid var(--border-light);
+    }
+    .subtask-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 3px 0; font-size: 12px; color: var(--text-secondary);
+    }
+    .subtask-row input[type="checkbox"] {
+      width: 13px; height: 13px; margin: 0; flex-shrink: 0;
+      accent-color: var(--accent);
+    }
+    .subtask-row .subtask-text { flex: 1; }
+    .subtask-row .subtask-text.done { text-decoration: line-through; color: var(--text-muted); }
+    .subtask-del {
+      opacity: 0; background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 14px; line-height: 1; padding: 0 2px;
+      transition: opacity 0.1s;
+    }
+    .subtask-row:hover .subtask-del { opacity: 1; }
+    .subtask-add {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 0; font-size: 12px; color: var(--text-muted);
+      cursor: pointer; opacity: 0; transition: opacity 0.15s;
+      font-style: italic;
+    }
+    .task-card:hover .subtask-add { opacity: 1; }
+    .subtask-input {
+      flex: 1; font-size: 12px; font-family: inherit;
+      border: 1px solid var(--accent); border-radius: 4px;
+      padding: 2px 7px; outline: none; background: var(--bg-card);
+    }
 
     .task-card-top {
       display: flex;
@@ -574,22 +614,6 @@
       word-break: break-word;
     }
 
-    .task-card-actions {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid var(--border-light);
-    }
-
-    .task-card-actions select {
-      flex: 1;
-      font-size: 11px; padding: 3px 6px;
-      border: 1px solid var(--border); border-radius: 5px;
-      background: var(--bg-primary); color: var(--text-muted);
-      cursor: pointer; font-family: inherit;
-    }
 
     .task-delete-btn {
       background: transparent; border: none;
@@ -722,7 +746,8 @@
       border-top: 0px solid var(--border-light);
     }
     .acc-card.open .acc-content {
-      max-height: 600px;
+      max-height: 400px;
+      overflow-y: auto;
       border-top-width: 1px;
     }
     .acc-content-inner { padding: 6px 0; }
@@ -1448,9 +1473,7 @@
           <span class="column-count${highClass}" id="count-${sec.id}">${tasks.length}</span>
         </div>
         <div class="column-cards" id="cards-${sec.id}">
-          ${tasks.length === 0
-            ? `<div class="empty-col">No tasks</div>`
-            : tasks.map(t => renderCard(t, sec.id)).join('')}
+          ${tasks.length === 0 ? `<div class="empty-col">No tasks</div>` : ''}
         </div>
         <div class="column-add">
           <button class="column-add-btn" onclick="showColInput('${sec.id}')">+ Add task</button>
@@ -1460,6 +1483,45 @@
           <div class="column-add-hint" id="col-hint-${sec.id}">Enter to add · Esc to cancel</div>
         </div>
       `;
+
+      // Append card DOM elements
+      const cardsEl = col.querySelector('.column-cards');
+      tasks.forEach(t => cardsEl.appendChild(renderCard(t, sec.id)));
+
+      // Drop zone handlers
+      const getDropTarget = e => {
+        const cards = [...cardsEl.querySelectorAll('.task-card:not(.dragging)')];
+        for (const card of cards) {
+          const rect = card.getBoundingClientRect();
+          if (e.clientY < rect.top + rect.height / 2) return card;
+        }
+        return null;
+      };
+      const showIndicator = e => {
+        cardsEl.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+        const before = getDropTarget(e);
+        const ind = document.createElement('div');
+        ind.className = 'drop-indicator';
+        before ? cardsEl.insertBefore(ind, before) : cardsEl.appendChild(ind);
+      };
+      col.addEventListener('dragover', e => {
+        e.preventDefault();
+        cardsEl.classList.add('drag-over');
+        showIndicator(e);
+      });
+      col.addEventListener('dragleave', e => {
+        if (!col.contains(e.relatedTarget)) {
+          cardsEl.classList.remove('drag-over');
+          cardsEl.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+        }
+      });
+      col.addEventListener('drop', async e => {
+        e.preventDefault();
+        cardsEl.classList.remove('drag-over');
+        cardsEl.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+        const id = e.dataTransfer.getData('text/plain');
+        if (id) await moveTask(id, sec.id);
+      });
 
       board.appendChild(col);
     });
@@ -1491,32 +1553,45 @@
     const { assignee, title } = parseAssignee(t.title, sectionId);
     const note = buildNote(t.context, t.done);
 
-    const assigneeBadge = assignee
-      ? `<span class="badge badge-orange" style="margin-bottom:4px;">${esc(assignee)}</span>` : '';
+    const el = document.createElement('div');
+    el.className = `task-card${t.done ? ' is-done' : ''}`;
+    el.id = `card-${t.id}`;
+    el.draggable = true;
+    const subtasks = t.subtasks || [];
+    const subtaskRows = subtasks.map((st, i) => `
+      <div class="subtask-row">
+        <input type="checkbox" ${st.checked ? 'checked' : ''}
+          onchange="toggleSubtask('${t.id}', ${i})" />
+        <span class="subtask-text ${st.checked ? 'done' : ''}">${esc(st.text)}</span>
+        <button class="subtask-del" onclick="deleteSubtask('${t.id}', ${i})" title="Remove">&times;</button>
+      </div>`).join('');
 
-    const noteHtml = note
-      ? `<div class="task-card-note">${esc(note)}</div>` : '';
-
-    return `
-      <div class="task-card ${t.done ? 'is-done' : ''}" id="card-${t.id}">
-        <div class="task-card-top">
-          <input type="checkbox" ${t.done ? 'checked' : ''}
-            onchange="toggleTask('${t.id}')" />
-          <div class="task-card-body">
-            ${assigneeBadge}
-            <div class="task-card-title ${t.done ? 'done' : ''}">${esc(title)}</div>
-            ${noteHtml}
-          </div>
-          <button class="task-delete-btn" onclick="deleteTask('${t.id}')"
-            title="Delete">&times;</button>
+    el.innerHTML = `
+      <div class="task-card-top">
+        <input type="checkbox" ${t.done ? 'checked' : ''}
+          onchange="toggleTask('${t.id}')" />
+        <div class="task-card-body">
+          ${assignee ? `<span class="badge badge-orange" style="margin-bottom:4px;">${esc(assignee)}</span>` : ''}
+          <div class="task-card-title ${t.done ? 'done' : ''}">${esc(title)}</div>
+          ${note ? `<div class="task-card-note">${esc(note)}</div>` : ''}
+          ${subtasks.length > 0 || true ? `
+          <div class="task-subtasks">
+            ${subtaskRows}
+            <div class="subtask-add" onclick="startAddSubtask(this, '${t.id}')">+ Add subtask</div>
+          </div>` : ''}
         </div>
-        <div class="task-card-actions">
-          <select onchange="moveTask('${t.id}', this.value)">
-            <option value="" disabled selected>Move to…</option>
-            ${SECTIONS.map(s => `<option value="${s.id}">${s.label}</option>`).join('')}
-          </select>
-        </div>
+        <button class="task-delete-btn" onclick="deleteTask('${t.id}')"
+          title="Delete">&times;</button>
       </div>`;
+
+    el.addEventListener('dragstart', e => {
+      el.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', t.id);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+
+    return el;
   }
 
   function showColInput(sectionId) {
@@ -1583,6 +1658,46 @@
     });
     await loadTasks();
     toast('Task moved');
+  }
+
+  function startAddSubtask(btn, taskId) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'subtask-input';
+    input.placeholder = 'New subtask…';
+    btn.replaceWith(input);
+    input.focus();
+    let saved = false;
+    const save = async () => {
+      if (saved) return;
+      saved = true;
+      const text = input.value.trim();
+      if (text) {
+        await fetch(`/api/tasks/${taskId}/subtasks`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text }),
+        });
+        await loadTasks();
+      } else {
+        await loadTasks(); // re-render to restore the "+ Add subtask" link
+      }
+    };
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); save(); }
+      else if (e.key === 'Escape') { saved = true; loadTasks(); }
+    });
+    input.addEventListener('blur', save);
+  }
+
+  async function toggleSubtask(taskId, subIdx) {
+    await fetch(`/api/tasks/${taskId}/subtasks/${subIdx}/toggle`, { method: 'PUT' });
+    await loadTasks();
+  }
+
+  async function deleteSubtask(taskId, subIdx) {
+    await fetch(`/api/tasks/${taskId}/subtasks/${subIdx}`, { method: 'DELETE' });
+    await loadTasks();
   }
 
   async function deleteTask(id) {

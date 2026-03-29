@@ -7,3 +7,5 @@ venv/
 data/TASKS.md
 data/logs/
 data/memory/memory/
+data/memory/people/
+data/memory/exits/

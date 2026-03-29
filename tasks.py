@@ -68,6 +68,16 @@ def parse() -> dict:
         if current_section is None:
             continue
 
+        # Parse indented subtask lines (must check before stripping)
+        subtask_match = re.match(r"^  - \[([ xX])\] (.+)$", line)
+        if subtask_match and sections[current_section]:
+            checked = subtask_match.group(1).lower() == "x"
+            text = subtask_match.group(2).strip()
+            sections[current_section][-1].setdefault("subtasks", []).append(
+                {"text": text, "checked": checked}
+            )
+            continue
+
         # Parse task lines
         task_match = re.match(r"^- \[([ xX])\] (.+)$", line.strip())
         if task_match:
@@ -95,6 +105,7 @@ def parse() -> dict:
                 "title": title,
                 "context": context,
                 "done": done,
+                "subtasks": [],
                 "raw": line.strip(),
             })
 
@@ -114,6 +125,9 @@ def _serialize(data: dict) -> str:
             else:
                 ctx = f" - {task['context']}" if task.get("context") else ""
                 lines.append(f"- [ ] **{task['title']}**{ctx}")
+            for st in task.get("subtasks", []):
+                check = "x" if st["checked"] else " "
+                lines.append(f"  - [{check}] {st['text']}")
         lines.append("")
 
     return "\n".join(lines)
@@ -199,3 +213,52 @@ def delete_task(task_id: str) -> bool:
     tasks.pop(idx)
     TASKS_PATH.write_text(_serialize(data))
     return True
+
+
+def _find_task(data: dict, task_id: str):
+    """Return (task_dict, section_key) or (None, None)."""
+    section_key, idx_str = task_id.rsplit("-", 1)
+    idx = int(idx_str)
+    tasks = data["sections"].get(section_key, [])
+    if idx >= len(tasks):
+        return None, None
+    return tasks[idx], section_key
+
+
+def add_subtask(task_id: str, text: str) -> dict | None:
+    """Append a subtask to a task. Returns updated task or None."""
+    data = parse()
+    task, _ = _find_task(data, task_id)
+    if task is None:
+        return None
+    task.setdefault("subtasks", []).append({"text": text, "checked": False})
+    TASKS_PATH.write_text(_serialize(data))
+    return task
+
+
+def toggle_subtask(task_id: str, sub_idx: int) -> dict | None:
+    """Toggle a subtask's checked state. Returns updated task or None."""
+    data = parse()
+    task, _ = _find_task(data, task_id)
+    if task is None:
+        return None
+    subtasks = task.get("subtasks", [])
+    if sub_idx >= len(subtasks):
+        return None
+    subtasks[sub_idx]["checked"] = not subtasks[sub_idx]["checked"]
+    TASKS_PATH.write_text(_serialize(data))
+    return task
+
+
+def delete_subtask(task_id: str, sub_idx: int) -> dict | None:
+    """Remove a subtask. Returns updated task or None."""
+    data = parse()
+    task, _ = _find_task(data, task_id)
+    if task is None:
+        return None
+    subtasks = task.get("subtasks", [])
+    if sub_idx >= len(subtasks):
+        return None
+    subtasks.pop(sub_idx)
+    TASKS_PATH.write_text(_serialize(data))
+    return task
