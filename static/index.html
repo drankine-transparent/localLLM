@@ -55,7 +55,7 @@
       color: var(--text-primary);
       height: 100vh;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       overflow: hidden;
       line-height: 1.5;
     }
@@ -70,94 +70,155 @@
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-    /* ── Header ── */
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 24px;
-      background: var(--tp-teal-dark);
-      border-bottom: none;
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px;
       flex-shrink: 0;
-      gap: 16px;
-      height: 52px;
+      background: var(--tp-white);
+      border-right: 1px solid var(--border-light);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 0.2s;
+    }
+    .sidebar.collapsed { width: 56px; }
+    .sidebar.collapsed .sidebar-brand-sub,
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed h1 { display: none; }
+    .sidebar.collapsed .sidebar-brand { padding: 16px 14px; }
+    .sidebar.collapsed .sidebar-brand-mark { margin-bottom: 0; }
+    .sidebar.collapsed .nav-item { padding: 10px 0; justify-content: center; gap: 0; }
+    .sidebar.collapsed .status span { display: none; }
+    .sidebar.collapsed .sidebar-footer { padding: 10px 0; display: flex; justify-content: center; }
+
+    .sidebar-brand {
+      background: linear-gradient(135deg, var(--tp-teal-darkest), var(--tp-teal-dark));
+      padding: 20px 20px 18px;
+      flex-shrink: 0;
     }
 
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-shrink: 0;
+    .sidebar-brand-mark {
+      width: 28px; height: 28px; border-radius: 6px;
+      background: rgba(255,255,255,0.18);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 10px;
     }
+
+    .sidebar-brand-mark svg { opacity: 0.9; }
 
     h1 {
       font-family: 'Poppins', sans-serif;
-      font-size: 1.05rem;
+      font-size: 14px;
       font-weight: 700;
-      letter-spacing: -0.01em;
       color: #FFFFFF;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
     }
 
-    /* ── Nav tabs ── */
-    .main-nav {
+    .sidebar-brand-sub {
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+      font-family: 'Source Sans 3', sans-serif;
+      margin-top: 1px;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 12px 10px;
+      overflow-y: auto;
       display: flex;
-      gap: 0;
-      background: transparent;
-      padding: 0;
-      border-radius: 0;
-      flex: 1;
-      max-width: 560px;
-      height: 52px;
-      align-items: stretch;
+      flex-direction: column;
+      gap: 2px;
     }
 
-    .main-nav button {
-      flex: 1;
-      background: transparent;
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
       border: none;
-      border-bottom: 3px solid transparent;
-      border-radius: 0;
-      padding: 0 14px;
+      border-left: 3px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: 'Source Sans 3', sans-serif;
       font-size: 13px;
       font-weight: 400;
-      color: rgba(255,255,255,0.65);
       cursor: pointer;
-      font-family: 'Source Sans 3', sans-serif;
-      transition: color 0.15s, border-color 0.15s;
+      transition: all 0.15s;
+      text-align: left;
+      width: 100%;
       white-space: nowrap;
-      height: 52px;
     }
 
-    .main-nav button:hover { color: #FFFFFF; }
-
-    .main-nav button.active {
-      background: transparent;
-      color: #FFFFFF;
-      font-weight: 700;
-      border-bottom-color: var(--tp-orange);
-      box-shadow: none;
+    .nav-item:hover {
+      background: var(--tp-teal-ice);
+      color: var(--tp-teal-dark);
     }
 
-    /* ── Status ── */
-    .status {
-      display: flex; align-items: center; gap: 6px;
-      background: rgba(255,255,255,0.12);
-      border-radius: 20px;
-      padding: 4px 10px;
+    .nav-item.active {
+      background: var(--tp-teal-ice);
+      border-left-color: var(--tp-teal-dark);
+      color: var(--tp-teal-dark);
+      font-weight: 600;
+    }
+
+    .nav-item-icon {
+      flex-shrink: 0;
+      width: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-label { white-space: nowrap; overflow: hidden; }
+
+    .sidebar-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-light);
       flex-shrink: 0;
     }
+
+    .status {
+      display: flex; align-items: center; gap: 7px;
+    }
     .status span {
-      font-size: 12px; color: rgba(255,255,255,0.9);
+      font-size: 11px; color: var(--text-muted);
       font-family: 'Source Sans 3', sans-serif;
-      white-space: nowrap; max-width: 160px;
-      overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .status-dot {
-      width: 8px; height: 8px; border-radius: 50%;
+      width: 7px; height: 7px; border-radius: 50%;
       background: var(--tp-gray-mid); transition: background 0.3s;
       flex-shrink: 0;
     }
     .status-dot.connected { background: var(--green); }
+
+    /* ── Topbar ── */
+    .topbar {
+      height: 52px;
+      background: linear-gradient(135deg, var(--tp-teal-darkest) 0%, var(--tp-teal-dark) 100%);
+      display: flex; align-items: center; padding: 0 20px; gap: 12px; flex-shrink: 0;
+    }
+    .toggle-btn {
+      background: none; border: none; cursor: pointer;
+      color: rgba(255,255,255,0.6); padding: 6px; border-radius: 4px;
+      display: flex; align-items: center; transition: all 0.15s;
+    }
+    .toggle-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .topbar-title {
+      color: #fff; font-family: 'Poppins', sans-serif;
+      font-size: 14px; font-weight: 600;
+    }
+
+    /* ── Main content area ── */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
 
     /* ── Panel system ── */
     .panel { display: none; flex: 1; min-height: 0; flex-direction: column; overflow: hidden; }
@@ -260,6 +321,39 @@
       text-overflow: ellipsis; white-space: nowrap; flex: 1;
     }
     .extract-buttons { margin-top: 8px; display: flex; gap: 8px; }
+
+    /* Extract type selection cards */
+    .extract-type-cards {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;
+    }
+    .extract-type-card {
+      border: 2px solid var(--border); border-radius: 6px;
+      padding: 12px 14px; text-align: left; background: var(--bg-card);
+      cursor: pointer; transition: all 0.15s; width: 100%; font-family: inherit;
+    }
+    .extract-type-card:hover {
+      border-color: var(--tp-teal-lightest); background: var(--tp-teal-ice);
+    }
+    .extract-type-card.active {
+      border-color: var(--tp-teal-medium); background: var(--tp-teal-ice);
+    }
+    .extract-type-icon { display: block; margin-bottom: 6px; }
+    .extract-type-label { font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 700; color: var(--tp-teal-darkest); }
+    .extract-type-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Extract success state */
+    .extract-success {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+      padding: 16px 18px;
+      background: var(--tp-teal-ice); border: 1px solid var(--tp-teal-lightest);
+      border-radius: 6px; margin-bottom: 8px;
+    }
+    .extract-success-title {
+      font-family: 'Poppins', sans-serif; font-size: 15px; font-weight: 700;
+      color: var(--tp-teal-darkest); display: flex; align-items: center; gap: 8px;
+    }
+    .extract-success-meta { font-size: 12px; color: var(--text-muted); }
+    .extract-success-actions { display: flex; gap: 8px; margin-top: 4px; }
 
     /* Dropzone */
     .dropzone {
@@ -802,26 +896,65 @@
 </head>
 <body>
 
-<!-- ── Header ── -->
-<header>
-  <div class="header-left">
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-mark">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="1" y="1" width="5" height="5" rx="1" fill="white"/>
+        <rect x="8" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/>
+        <rect x="1" y="8" width="5" height="5" rx="1" fill="white" opacity="0.6"/>
+        <rect x="8" y="8" width="5" height="5" rx="1" fill="white" opacity="0.3"/>
+      </svg>
+    </div>
     <h1>Productivity</h1>
+    <div class="sidebar-brand-sub">Local LLM</div>
   </div>
 
-  <nav class="main-nav">
-    <button class="active" data-panel="tasks">Tasks</button>
-    <button data-panel="memory">Memory</button>
-    <button data-panel="decode">Decode</button>
-    <button data-panel="search">Search</button>
-    <button data-panel="chat">Chat</button>
-    <button data-panel="logs">Logs</button>
+  <nav class="sidebar-nav">
+    <button class="nav-item active" data-panel="tasks">
+      <span class="nav-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5" fill="#0F5160"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" fill="#468389"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" fill="#6AAFBA"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" fill="#B8DDD8"/></svg></span>
+      <span class="nav-label">Tasks</span>
+    </button>
+    <button class="nav-item" data-panel="memory">
+      <span class="nav-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="15" rx="1" fill="#6AAFBA"/><rect x="3" y="3.5" width="18" height="4" rx="1" fill="#0F5160"/><rect x="6" y="10" width="3" height="3" rx="0.5" fill="white"/><rect x="11" y="10" width="3" height="3" rx="0.5" fill="white"/><rect x="16" y="10" width="3" height="3" rx="0.5" fill="white"/><rect x="9" y="15" width="6" height="5" rx="0.5" fill="white"/></svg></span>
+      <span class="nav-label">Memory</span>
+    </button>
+    <button class="nav-item" data-panel="decode">
+      <span class="nav-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="4" y1="6" x2="20" y2="6" stroke="#0F5160" stroke-width="1.8" stroke-linecap="round"/><line x1="4" y1="12" x2="20" y2="12" stroke="#468389" stroke-width="1.8" stroke-linecap="round"/><line x1="4" y1="18" x2="20" y2="18" stroke="#6AAFBA" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="6" r="2.5" fill="white" stroke="#0F5160" stroke-width="1.5"/><circle cx="15" cy="12" r="2.5" fill="white" stroke="#468389" stroke-width="1.5"/><circle cx="7" cy="18" r="2.5" fill="white" stroke="#6AAFBA" stroke-width="1.5"/></svg></span>
+      <span class="nav-label">Decode</span>
+    </button>
+    <button class="nav-item" data-panel="search">
+      <span class="nav-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6" stroke="#0F5160" stroke-width="1.8" fill="none"/><circle cx="10.5" cy="10.5" r="3" fill="#B8DDD8"/><line x1="15" y1="15" x2="20" y2="20" stroke="#468389" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <span class="nav-label">Search</span>
+    </button>
+    <button class="nav-item" data-panel="chat">
+      <span class="nav-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" fill="#6AAFBA"/><rect x="3" y="4" width="18" height="12" rx="1.5" fill="#0F5160"/><rect x="5" y="8" width="8" height="1.5" rx="0.75" fill="white" opacity="0.8"/><rect x="5" y="11" width="5" height="1.5" rx="0.75" fill="white" opacity="0.5"/><path d="M7 17l2 3 2-3" fill="#6AAFBA"/></svg></span>
+      <span class="nav-label">Chat</span>
+    </button>
+    <button class="nav-item" data-panel="logs">
+      <span class="nav-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#B8DDD8"/><rect x="3" y="3" width="18" height="5" rx="2" fill="#0F5160"/><rect x="6" y="11" width="12" height="1.5" rx="0.75" fill="#468389"/><rect x="6" y="14.5" width="8" height="1.5" rx="0.75" fill="#6AAFBA"/><rect x="6" y="18" width="10" height="1.5" rx="0.75" fill="#B8DDD8"/></svg></span>
+      <span class="nav-label">Logs</span>
+    </button>
   </nav>
 
-  <div class="status">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">Checking...</span>
+  <div class="sidebar-footer">
+    <div class="status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Checking...</span>
+    </div>
   </div>
-</header>
+</aside>
+
+<div class="main-content">
+
+<!-- ── Topbar ── -->
+<div class="topbar">
+  <button class="toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="2" rx="1" fill="rgba(255,255,255,0.75)"/><rect x="3" y="11" width="18" height="2" rx="1" fill="rgba(255,255,255,0.75)"/><rect x="3" y="17" width="18" height="2" rx="1" fill="rgba(255,255,255,0.75)"/></svg>
+  </button>
+  <span class="topbar-title" id="topbarTitle">Tasks</span>
+</div>
 
 <!-- ══════════════════════════════════════
      TASKS PANEL
@@ -835,21 +968,72 @@
   </div>
 
   <div class="extract-area" id="extractArea" style="display:none;">
-    <div class="dropzone" id="extractDropzone"
-      onclick="document.getElementById('fileInput').click()"
-      ondragover="event.preventDefault();this.classList.add('drag-over')"
-      ondragleave="this.classList.remove('drag-over')"
-      ondrop="event.preventDefault();this.classList.remove('drag-over');handleFileUpload(event.dataTransfer.files[0])">
-      <div class="dz-text">Drop a file here or <span class="dz-link">browse</span></div>
-      <div class="dz-subtext" id="fileLabel">.txt · .md · .pdf · or paste text below</div>
+
+    <!-- Type selection cards -->
+    <div class="extract-type-cards" id="extractTypeCards">
+      <button class="extract-type-card" id="typeCardFile" onclick="selectExtractType('file')">
+        <span class="extract-type-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3v13" stroke="#0F5160" stroke-width="2" stroke-linecap="round"/>
+            <path d="M7 8l5-5 5 5" stroke="#0F5160" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <line x1="4" y1="18" x2="20" y2="18" stroke="#468389" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="4" y1="21.5" x2="20" y2="21.5" stroke="#B8DDD8" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <div class="extract-type-label">From file</div>
+        <div class="extract-type-desc">Upload .txt, .md, or .pdf</div>
+      </button>
+      <button class="extract-type-card" id="typeCardText" onclick="selectExtractType('text')">
+        <span class="extract-type-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="2" fill="#B8DDD8"/>
+            <rect x="3" y="3" width="18" height="5" rx="2" fill="#0F5160"/>
+            <rect x="6" y="11" width="12" height="1.5" rx="0.75" fill="#468389"/>
+            <rect x="6" y="14.5" width="8" height="1.5" rx="0.75" fill="#6AAFBA"/>
+          </svg>
+        </span>
+        <div class="extract-type-label">Paste text</div>
+        <div class="extract-type-desc">Meeting notes, emails, or any text</div>
+      </button>
     </div>
-    <input type="file" id="fileInput" accept=".txt,.md,.pdf" style="display:none"
-      onchange="handleFileUpload(this.files[0])">
-    <textarea id="extractText" placeholder="Paste meeting notes, emails, or any text — the LLM will extract tasks…"></textarea>
-    <div class="extract-buttons">
+
+    <!-- Success state (shown after extraction) -->
+    <div class="extract-success" id="extractSuccess" style="display:none;">
+      <div class="extract-success-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#0F5160"/><path d="M7 12l4 4 6-7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span id="extractSuccessTitle">Tasks extracted</span>
+      </div>
+      <div class="extract-success-meta" id="extractSuccessMeta"></div>
+      <div class="extract-success-actions">
+        <button class="btn btn-secondary" onclick="extractAnother()">Extract Another</button>
+        <button class="btn" onclick="toggleExtract()">View Tasks</button>
+      </div>
+    </div>
+
+    <!-- File input (shown when type=file) -->
+    <div id="extractFileArea" style="display:none;">
+      <div class="dropzone" id="extractDropzone"
+        onclick="document.getElementById('fileInput').click()"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="event.preventDefault();this.classList.remove('drag-over');handleFileUpload(event.dataTransfer.files[0])">
+        <div class="dz-text">Drop a file here or <span class="dz-link">browse</span></div>
+        <div class="dz-subtext" id="fileLabel">.txt · .md · .pdf</div>
+      </div>
+      <input type="file" id="fileInput" accept=".txt,.md,.pdf" style="display:none"
+        onchange="handleFileUpload(this.files[0])">
+    </div>
+
+    <!-- Text input (shown when type=text) -->
+    <div id="extractTextArea" style="display:none;">
+      <textarea id="extractText" placeholder="Paste meeting notes, emails, or any text — the LLM will extract tasks…"></textarea>
+    </div>
+
+    <div class="extract-buttons" id="extractButtons" style="display:none;">
       <button class="btn" id="extractBtn" onclick="extractTasks()">Extract Tasks</button>
       <button class="btn btn-secondary" onclick="toggleExtract()">Cancel</button>
     </div>
+
     <div class="memory-suggestions" id="memorySuggestions" style="display:none;">
       <div class="memory-suggestions-header">
         <span>Memory suggestions</span>
@@ -953,6 +1137,8 @@
     <div id="logsContainer" style="flex:1; overflow-y:auto;"></div>
   </div>
 </div>
+
+</div><!-- /.main-content -->
 
 <div class="toast" id="toast"></div>
 
@@ -1083,16 +1269,23 @@
   }
 
   // ── Nav switching ──────────────────────────────────────
-  document.querySelector('.main-nav').addEventListener('click', e => {
-    const btn = e.target.closest('button');
+  document.querySelector('.sidebar-nav').addEventListener('click', e => {
+    const btn = e.target.closest('.nav-item');
     if (!btn) return;
-    document.querySelectorAll('.main-nav button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+    const label = btn.querySelector('.nav-label');
+    if (label) document.getElementById('topbarTitle').textContent = label.textContent;
     if (btn.dataset.panel === 'logs') loadLogs();
     if (btn.dataset.panel === 'chat') showChatEmptyState();
   });
+
+  // ── Sidebar toggle ─────────────────────────────────────
+  function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('collapsed');
+  }
 
   // ── Health check ───────────────────────────────────────
   async function checkHealth() {
@@ -1491,6 +1684,30 @@
   }
 
   // Extract
+  let _extractType = null;
+
+  function selectExtractType(type) {
+    _extractType = type;
+    document.getElementById('typeCardFile').classList.toggle('active', type === 'file');
+    document.getElementById('typeCardText').classList.toggle('active', type === 'text');
+    document.getElementById('extractFileArea').style.display = type === 'file' ? '' : 'none';
+    document.getElementById('extractTextArea').style.display = type === 'text' ? '' : 'none';
+    document.getElementById('extractButtons').style.display = '';
+  }
+
+  function extractAnother() {
+    _extractType = null;
+    document.getElementById('extractSuccess').style.display = 'none';
+    document.getElementById('extractTypeCards').style.display = '';
+    document.getElementById('extractFileArea').style.display = 'none';
+    document.getElementById('extractTextArea').style.display = 'none';
+    document.getElementById('extractButtons').style.display = 'none';
+    document.getElementById('typeCardFile').classList.remove('active');
+    document.getElementById('typeCardText').classList.remove('active');
+    document.getElementById('extractText').value = '';
+    document.getElementById('fileLabel').textContent = '.txt · .md · .pdf';
+  }
+
   function toggleExtract() {
     const el = document.getElementById('extractArea');
     const btn = document.getElementById('extractToggleBtn');
@@ -1501,6 +1718,7 @@
       hideSuggestions();
       if (_autoCloseTimer && _autoCloseTimer !== 'pending') clearTimeout(_autoCloseTimer);
       _autoCloseTimer = null;
+      extractAnother();
     }
     el.style.display = isOpen ? 'none' : '';
     btn.textContent = isOpen ? 'Extract' : 'Cancel';
@@ -1558,7 +1776,18 @@
       try { applyStatusUpdate(await (await fetch('/api/extract/status')).json()); } catch {}
       toast(`Extracted ${d.extracted} task(s)`);
       document.getElementById('extractText').value = '';
+      document.getElementById('fileLabel').textContent = '.txt · .md · .pdf';
       await loadTasks();
+      // Show success state
+      document.getElementById('extractTypeCards').style.display = 'none';
+      document.getElementById('extractFileArea').style.display = 'none';
+      document.getElementById('extractTextArea').style.display = 'none';
+      document.getElementById('extractButtons').style.display = 'none';
+      document.getElementById('extractSuccessTitle').textContent =
+        `${d.extracted} task${d.extracted !== 1 ? 's' : ''} extracted`;
+      document.getElementById('extractSuccessMeta').textContent =
+        `from ${chunkCount} chunk${chunkCount !== 1 ? 's' : ''} · ${(text.length / 1000).toFixed(1)}k chars`;
+      document.getElementById('extractSuccess').style.display = '';
       _autoCloseTimer = 'pending';
       fetchMemorySuggestions(text);
     } catch (e) {
