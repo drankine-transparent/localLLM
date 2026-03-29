@@ -84,7 +84,7 @@ Information to save:
 {text}
 
 Current memory files:
-[CLAUDE.md]
+[profile.md]
 {claude_md}
 
 [glossary.md]
@@ -94,7 +94,7 @@ Rules:
 - New acronym or term → add a row to glossary.md in the matching table (Acronyms, Internal Terms, Nicknames, or Project Codenames)
 - New person info → create people/firstname-lastname.md with a short profile
 - New project info → create projects/project-name.md with details
-- Preference or fact about Darren → add to CLAUDE.md in the right section
+- Preference or fact about Darren → add to profile.md in the right section
 - Preserve ALL existing content; only append the new information
 - Keep additions concise (1-4 lines)
 

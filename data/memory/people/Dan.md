@@ -7,3 +7,4 @@ role: Contractor, crawler tool
 - Lacks team contribution
 - Missed deadlines consistently
 - Self-centered approach to work
+- 

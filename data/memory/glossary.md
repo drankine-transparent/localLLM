@@ -25,13 +25,19 @@ Workplace shorthand, acronyms, and internal language.
 | Kanban | Task board UI (Active / Waiting On / Someday / Done) |
 | Ralph Loop | Iterative AI development technique (repeat prompt, Claude reads prior output) |
 | Enneagram | Personality typing system referenced in describing Dan's behavior patterns |
+| Mindful Planners | A potential new audience segment identified through overlap between Stay Connected and Smart Home Lovers groups |
 
 ## Project Codenames
 | Codename | Project |
 |----------|---------|
 | Knowledge Graph | Firestore + MCP institutional knowledge system |
 | Interview Agent | Structured interview tool (n8n + FastAPI) |
-| nano banana | Unclear project codename Dan worked on independently
+| nano banana | Unclear project codename Dan worked on independently |
+
+## Tools/Platforms
+| Term | Meaning |
+|------|---------|
+| Optimizely | Testing platform used by Andy's team to run tests and gather insights into audience behavior |
 
 ## Nicknames
 | Nickname | Person |

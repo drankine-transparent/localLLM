@@ -4,7 +4,7 @@ from pathlib import Path
 
 DATA_DIR = Path(__file__).parent / "data"
 MEMORY_DIR = DATA_DIR / "memory"
-CLAUDE_MD = MEMORY_DIR / "CLAUDE.md"
+CLAUDE_MD = MEMORY_DIR / "profile.md"
 GLOSSARY_MD = MEMORY_DIR / "glossary.md"
 
 # Templates for initialization

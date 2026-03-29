@@ -4,7 +4,7 @@
 Darren Rankine (Dee), CTO at Transparent Partners. Leading AI/agent architecture,
 Knowledge Graph, MCP server, Interview Agent, and productivity tooling.
 
-**Fact:** Coaching plan agreed upon — Dee agrees to structured coaching approach with clear proof points required before final decision
+**Fact:** Coaching plan agreed upon — Dee agrees to a structured coaching approach with clear proof points required before final decision
 **Fact:** Segmentation Application Strategy — The segmentation is being used primarily for messaging development and brand positioning rather than strict niche targeting to avoid excluding large portions of the audience.
 **Fact:** Validation Goals for Segments — The team plans to validate segments during marketing efforts by checking existence, marketability, overlap between groups, and identifying potential new segments like Mindful Planners.
 
