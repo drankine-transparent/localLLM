@@ -49,8 +49,6 @@ class MemoryWrite(BaseModel):
     content: str
 
 
-class SearchQuery(BaseModel):
-    query: str
 
 
 class ChatMessage(BaseModel):
@@ -254,20 +252,6 @@ async def write_memory(body: MemoryWrite):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/api/memory/decode")
-async def decode_memory(body: TextInput):
-    try:
-        glossary = prompts.truncate(memory.get_glossary(), 3000)
-        prompt = prompts.MEMORY_DECODE.format(
-            glossary=glossary, text=prompts.truncate(body.text)
-        )
-        result = await llm.chat(
-            "You decode workplace shorthand using the provided glossary.", prompt
-        )
-        return {"original": body.text, "decoded": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/api/memory/learn")
 async def learn_memory(body: LearnInput):
@@ -311,20 +295,6 @@ async def suggest_memory(body: SuggestInput):
     except Exception:
         return []  # Suggestions are optional — fail silently
 
-
-@app.post("/api/memory/search")
-async def search_memory(body: SearchQuery):
-    try:
-        kb = prompts.truncate(memory.get_all_content(), 4000)
-        prompt = prompts.MEMORY_SEARCH.format(
-            knowledge_base=kb, query=body.query
-        )
-        result = await llm.chat(
-            "You search a knowledge base and return relevant results.", prompt
-        )
-        return {"query": body.query, "results": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 # --- Chat ---

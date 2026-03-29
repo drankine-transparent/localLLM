@@ -41,17 +41,7 @@ Example output:
 Transcript:
 {text}"""
 
-MEMORY_DECODE = """Expand all shorthand, acronyms, and nicknames using this glossary:
-{glossary}
 
-Text to decode:
-{text}"""
-
-MEMORY_SEARCH = """Find relevant info for the query using this knowledge base. Cite [file: path].
-
-{knowledge_base}
-
-Query: {query}"""
 
 CHAT_SYSTEM = """Helpful workplace assistant. Context:
 {context}

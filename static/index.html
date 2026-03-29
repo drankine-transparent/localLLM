@@ -456,15 +456,33 @@
 
     /* Board summary strip */
     .board-summary-strip {
-      display: flex; align-items: center;
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: 6px; padding: 10px 20px; margin: 0 24px 12px;
-      gap: 0; flex-shrink: 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      padding: 20px 20px 0;
+      flex-shrink: 0;
     }
-    .board-summary-item { flex: 1; text-align: center; }
-    .board-summary-value { font-family: 'Poppins', sans-serif; font-size: 20px; font-weight: 700; color: var(--tp-teal-darkest); line-height: 1; }
-    .board-summary-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-top: 3px; }
-    .board-summary-divider { width: 1px; height: 32px; background: var(--border); margin: 0 12px; flex-shrink: 0; }
+    .stat-card {
+      background: linear-gradient(to bottom, var(--tp-teal-ice), var(--bg-card));
+      border: 1px solid var(--border-light);
+      border-top: 3px solid var(--border-light);
+      border-radius: 10px;
+      padding: 14px 18px 12px;
+      box-shadow: 0 1px 3px var(--shadow);
+      cursor: default;
+      transition: transform 0.15s, border-top-color 0.15s, box-shadow 0.15s;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px var(--shadow-hover);
+    }
+    .stat-card[data-section="active"]:hover  { border-top-color: var(--tp-teal-dark); }
+    .stat-card[data-section="waiting"]:hover { border-top-color: var(--tp-orange); }
+    .stat-card[data-section="someday"]:hover { border-top-color: var(--tp-teal-medium); }
+    .stat-card[data-section="done"]:hover    { border-top-color: #2E7D32; }
+    .stat-card-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 6px; }
+    .stat-card-value { font-family: 'Poppins', sans-serif; font-size: 28px; font-weight: 700; color: var(--tp-teal-darkest); line-height: 1; }
+    .stat-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 
     .column-header {
       padding: 14px 16px 10px;
@@ -534,17 +552,6 @@
     .task-card-body { flex: 1; min-width: 0; }
 
     /* Assignee badge (Waiting On tasks: "Aaron: ...") */
-    .task-assignee {
-      display: inline-flex;
-      font-size: 11px;
-      font-weight: 600;
-      font-family: 'Poppins', sans-serif;
-      color: var(--tp-teal-dark);
-      background: var(--tp-teal-ice);
-      padding: 1px 8px;
-      border-radius: 20px;
-      margin-bottom: 4px;
-    }
 
     .task-card-title {
       font-size: 15px;
@@ -1024,14 +1031,8 @@
       <span class="nav-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="15" rx="1" fill="#6AAFBA"/><rect x="3" y="3.5" width="18" height="4" rx="1" fill="#0F5160"/><rect x="6" y="10" width="3" height="3" rx="0.5" fill="white"/><rect x="11" y="10" width="3" height="3" rx="0.5" fill="white"/><rect x="16" y="10" width="3" height="3" rx="0.5" fill="white"/><rect x="9" y="15" width="6" height="5" rx="0.5" fill="white"/></svg></span>
       <span class="nav-label">Memory</span>
     </button>
-    <button class="nav-item" data-panel="decode">
-      <span class="nav-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="4" y1="6" x2="20" y2="6" stroke="#0F5160" stroke-width="1.8" stroke-linecap="round"/><line x1="4" y1="12" x2="20" y2="12" stroke="#468389" stroke-width="1.8" stroke-linecap="round"/><line x1="4" y1="18" x2="20" y2="18" stroke="#6AAFBA" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="6" r="2.5" fill="white" stroke="#0F5160" stroke-width="1.5"/><circle cx="15" cy="12" r="2.5" fill="white" stroke="#468389" stroke-width="1.5"/><circle cx="7" cy="18" r="2.5" fill="white" stroke="#6AAFBA" stroke-width="1.5"/></svg></span>
-      <span class="nav-label">Decode</span>
-    </button>
-    <button class="nav-item" data-panel="search">
-      <span class="nav-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="6" stroke="#0F5160" stroke-width="1.8" fill="none"/><circle cx="10.5" cy="10.5" r="3" fill="#B8DDD8"/><line x1="15" y1="15" x2="20" y2="20" stroke="#468389" stroke-width="2" stroke-linecap="round"/></svg></span>
-      <span class="nav-label">Search</span>
-    </button>
+
+
     <button class="nav-item" data-panel="chat">
       <span class="nav-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" fill="#6AAFBA"/><rect x="3" y="4" width="18" height="12" rx="1.5" fill="#0F5160"/><rect x="5" y="8" width="8" height="1.5" rx="0.75" fill="white" opacity="0.8"/><rect x="5" y="11" width="5" height="1.5" rx="0.75" fill="white" opacity="0.5"/><path d="M7 17l2 3 2-3" fill="#6AAFBA"/></svg></span>
       <span class="nav-label">Chat</span>
@@ -1187,38 +1188,9 @@
 <!-- ══════════════════════════════════════
      DECODE PANEL
 ══════════════════════════════════════ -->
-<div class="panel" id="panel-decode">
-  <div class="tool-panel">
-    <div class="panel-header" style="padding-left:0;padding-top:0;">
-      <h2>Decode</h2>
-      <p>Expands workplace shorthand and acronyms using your glossary.</p>
-    </div>
-    <textarea id="decodeInput"
-      placeholder='Paste shorthand text (e.g. "ask todd about the PSR for phoenix")'></textarea>
-    <div>
-      <button class="btn" id="decodeBtn" onclick="decode()">Decode</button>
-    </div>
-    <div id="decodeResult" style="flex:1; display:flex; flex-direction:column; overflow:hidden;"></div>
-  </div>
-</div>
-
 <!-- ══════════════════════════════════════
      SEARCH PANEL
 ══════════════════════════════════════ -->
-<div class="panel" id="panel-search">
-  <div class="tool-panel">
-    <div class="panel-header" style="padding-left:0;padding-top:0;">
-      <h2>Search</h2>
-      <p>Searches across all memory files — people, projects, glossary, and notes.</p>
-    </div>
-    <input type="text" id="searchInput" placeholder="Search memory…" />
-    <div>
-      <button class="btn" onclick="searchMemory()">Search</button>
-    </div>
-    <div id="searchResult" style="flex:1; display:flex; flex-direction:column; overflow:hidden;"></div>
-  </div>
-</div>
-
 <!-- ══════════════════════════════════════
      CHAT PANEL
 ══════════════════════════════════════ -->
@@ -1452,13 +1424,15 @@
     // Populate summary strip
     const strip = document.getElementById('boardSummaryStrip');
     if (strip) {
-      const counts = SECTIONS.map(sec => ({ label: sec.label, count: (tasksData?.sections?.[sec.id] || []).length }));
-      strip.innerHTML = counts.map((s, i) => `
-        ${i > 0 ? '<div class="board-summary-divider"></div>' : ''}
-        <div class="board-summary-item">
-          <div class="board-summary-value">${s.count}</div>
-          <div class="board-summary-label">${esc(s.label)}</div>
-        </div>`).join('');
+      const subs = { active: 'In progress', waiting: 'Blocked or pending', someday: 'Future ideas', done: 'Completed' };
+      strip.innerHTML = SECTIONS.map(sec => {
+        const count = (tasksData?.sections?.[sec.id] || []).length;
+        return `<div class="stat-card" data-section="${sec.id}">
+          <div class="stat-card-label">${esc(sec.label)}</div>
+          <div class="stat-card-value">${count}</div>
+          <div class="stat-card-sub">${subs[sec.id] || ''}</div>
+        </div>`;
+      }).join('');
     }
 
     SECTIONS.forEach(sec => {
@@ -1518,7 +1492,7 @@
     const note = buildNote(t.context, t.done);
 
     const assigneeBadge = assignee
-      ? `<div class="task-assignee">${esc(assignee)}</div>` : '';
+      ? `<span class="badge badge-orange" style="margin-bottom:4px;">${esc(assignee)}</span>` : '';
 
     const noteHtml = note
       ? `<div class="task-card-note">${esc(note)}</div>` : '';
@@ -2141,56 +2115,11 @@
   // DECODE
   // ══════════════════════════════════════════════════════
 
-  async function decode() {
-    const text = document.getElementById('decodeInput').value.trim();
-    if (!text) return;
-    const btn = document.getElementById('decodeBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Decoding…';
-    const resultEl = document.getElementById('decodeResult');
-    try {
-      const r = await fetch('/api/memory/decode', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ text }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail || 'Decode failed');
-      resultEl.innerHTML = `<div class="tool-result">${esc(d.decoded)}</div>`;
-    } catch (e) {
-      resultEl.innerHTML = `<div class="tool-result error">${esc(e.message)}</div>`;
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Decode';
-    }
-  }
 
   // ══════════════════════════════════════════════════════
   // SEARCH
   // ══════════════════════════════════════════════════════
 
-  async function searchMemory() {
-    const query = document.getElementById('searchInput').value.trim();
-    if (!query) return;
-    const resultEl = document.getElementById('searchResult');
-    resultEl.innerHTML = '<div style="padding:8px;"><span class="spinner"></span></div>';
-    try {
-      const r = await fetch('/api/memory/search', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ query }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail || 'Search failed');
-      resultEl.innerHTML = `<div class="tool-result">${esc(d.results)}</div>`;
-    } catch (e) {
-      resultEl.innerHTML = `<div class="tool-result error">${esc(e.message)}</div>`;
-    }
-  }
-
-  document.getElementById('searchInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') searchMemory();
-  });
 
   // ══════════════════════════════════════════════════════
   // CHAT
