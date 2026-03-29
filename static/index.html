@@ -186,9 +186,16 @@
     }
     .board-toolbar input:focus { outline: none; border-color: var(--accent); }
 
+    /* Global focus ring */
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--tp-teal-medium) !important;
+      box-shadow: 0 0 0 2px rgba(70, 131, 137, 0.12);
+      outline: none !important;
+    }
+
     .btn {
       background: var(--accent); color: white; border: none;
-      padding: 8px 16px; border-radius: 8px; font-size: 13px;
+      padding: 8px 16px; border-radius: 5px; font-size: 13px;
       cursor: pointer; font-family: inherit; font-weight: 500;
       white-space: nowrap; transition: background 0.15s, transform 0.1s;
     }
@@ -199,7 +206,39 @@
       background: var(--bg-card); color: var(--text-primary);
       border: 1px solid var(--border);
     }
-    .btn-secondary:hover { background: var(--bg-secondary); }
+    .btn-secondary:hover {
+      background: var(--tp-teal-ice);
+      border-color: var(--tp-teal-lightest);
+      color: var(--tp-teal-dark);
+    }
+    .btn-ghost {
+      background: none; border: none;
+      color: var(--tp-teal-medium); font-size: 12px; font-weight: 600;
+      padding: 4px 8px; border-radius: 5px; cursor: pointer; font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-ghost:hover { background: var(--tp-teal-ice); color: var(--tp-teal-dark); }
+
+    /* Semantic badge system */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-teal   { background: var(--tp-teal-ice); color: var(--tp-teal-dark); }
+    .badge-green  { background: #E8F5E0; color: #2E7D32; }
+    .badge-yellow { background: #FDF8ED; color: #B35F00; }
+    .badge-red    { background: #FDF2F2; color: #C62828; }
+    .badge-grey   { background: #F0F2F4; color: #666666; }
+    .badge-orange { background: #FFF0E8; color: #8B3A00; }
+
+    /* Alert component */
+    .alert { padding: 10px 14px; border-radius: 6px; font-size: 13px; line-height: 1.4; }
+    .alert strong { font-weight: 700; display: block; margin-bottom: 2px; }
+    .alert-warning { background: #FDF8ED; border: 1px solid #E8C840; color: #6B3800; }
+    .alert-error   { background: #FDF2F2; border: 1px solid #F0B8B8; color: #8B1A1A; }
+    .alert-success { background: #E8F5E0; border: 1px solid #a8d5a0; color: #2E7D32; }
+
+    /* Panel page header */
+    .panel-header { padding: 20px 24px 0; flex-shrink: 0; }
+    .panel-header h2 { font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 700; color: var(--tp-teal-darkest); margin: 0; }
+    .panel-header p  { font-size: 13px; color: var(--text-muted); margin-top: 3px; font-style: italic; }
 
     /* Extract area */
     .extract-area {
@@ -210,25 +249,30 @@
     }
     .extract-area textarea {
       width: 100%; padding: 10px 14px;
-      border: 1px solid var(--border); border-radius: 8px;
+      border: 1px solid var(--border); border-radius: 6px;
       font-family: inherit; font-size: 14px;
       background: var(--bg-card); resize: vertical; min-height: 70px;
       transition: border-color 0.15s;
     }
-    .extract-area textarea:focus { border-color: var(--accent); outline: none; }
-    .extract-area textarea.drag-over { border-color: var(--accent); background: var(--accent-subtle); }
-    .extract-file-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .btn-upload {
-      font-size: 12px; padding: 5px 12px; background: transparent;
-      border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary);
-      cursor: pointer; font-family: inherit; transition: all 0.15s; flex-shrink: 0;
-    }
-    .btn-upload:hover { border-color: var(--accent); color: var(--accent); }
+    .extract-area textarea.drag-over { border-color: var(--tp-teal-medium); background: var(--tp-teal-ice); }
     .file-label {
       font-size: 12px; color: var(--text-muted); overflow: hidden;
       text-overflow: ellipsis; white-space: nowrap; flex: 1;
     }
     .extract-buttons { margin-top: 8px; display: flex; gap: 8px; }
+
+    /* Dropzone */
+    .dropzone {
+      border: 2px dashed var(--tp-teal-lightest); border-radius: 6px;
+      padding: 18px 24px; text-align: center; background: #F8FBFB;
+      transition: all 0.2s; cursor: pointer; margin-bottom: 8px;
+    }
+    .dropzone:hover, .dropzone.drag-over {
+      border-color: var(--tp-teal-medium); background: var(--tp-teal-ice);
+    }
+    .dz-text { font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 700; color: var(--tp-teal-darkest); }
+    .dz-subtext { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+    .dz-link { color: var(--tp-teal-medium); font-weight: 600; }
 
     /* ── Activity Bar ── */
     .activity-bar {
@@ -303,13 +347,30 @@
 
     .board-column {
       background: var(--bg-secondary);
-      border-radius: 12px;
+      border-radius: 6px;
+      border-top: 3px solid var(--tp-teal-medium);
       min-width: 340px;
       max-width: 340px;
       display: flex;
       flex-direction: column;
       max-height: 100%;
     }
+    .board-column[data-section="active"]  { border-top-color: var(--tp-teal-dark); }
+    .board-column[data-section="waiting"] { border-top-color: var(--tp-orange); }
+    .board-column[data-section="someday"] { border-top-color: var(--tp-teal-medium); }
+    .board-column[data-section="done"]    { border-top-color: #2E7D32; }
+
+    /* Board summary strip */
+    .board-summary-strip {
+      display: flex; align-items: center;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 6px; padding: 10px 20px; margin: 0 24px 12px;
+      gap: 0; flex-shrink: 0;
+    }
+    .board-summary-item { flex: 1; text-align: center; }
+    .board-summary-value { font-family: 'Poppins', sans-serif; font-size: 20px; font-weight: 700; color: var(--tp-teal-darkest); line-height: 1; }
+    .board-summary-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-top: 3px; }
+    .board-summary-divider { width: 1px; height: 32px; background: var(--border); margin: 0 12px; flex-shrink: 0; }
 
     .column-header {
       padding: 14px 16px 10px;
@@ -352,7 +413,7 @@
       background: var(--bg-card);
       border: 1px solid var(--border-light);
       border-left: 3px solid var(--tp-teal-medium);
-      border-radius: 0 8px 8px 0;
+      border-radius: 0 6px 6px 0;
       padding: 16px 18px;
       margin-bottom: 10px;
       box-shadow: 0 1px 3px var(--shadow);
@@ -586,25 +647,23 @@
     .tool-panel input[type="text"] {
       width: 100%;
       padding: 12px 16px;
-      border: 1px solid var(--border); border-radius: 10px;
+      border: 1px solid var(--border); border-radius: 6px;
       font-family: inherit; font-size: 14px;
       background: var(--bg-card); transition: border-color 0.15s;
     }
     .tool-panel textarea { resize: vertical; min-height: 90px; }
-    .tool-panel textarea:focus,
-    .tool-panel input[type="text"]:focus { outline: none; border-color: var(--accent); }
 
     .tool-result {
       flex: 1;
       background: var(--bg-secondary);
-      border-radius: 10px;
+      border-radius: 6px;
       padding: 16px;
       font-size: 14px;
       white-space: pre-wrap;
       overflow-y: auto;
       line-height: 1.65;
     }
-    .tool-result.error { background: #fff5f5; color: var(--red); }
+    .tool-result.error { background: #FDF2F2; color: #C62828; border: 1px solid #F0B8B8; }
 
     /* Chat */
     .chat-messages {
@@ -616,7 +675,7 @@
     }
 
     .chat-msg {
-      border-radius: 10px;
+      border-radius: 8px;
       padding: 12px 16px;
       font-size: 14px;
       line-height: 1.6;
@@ -650,7 +709,7 @@
 
     .memory-suggestions {
       margin-top: 12px; border: 1px solid var(--border);
-      border-radius: 8px; overflow: hidden;
+      border-radius: 6px; overflow: hidden;
     }
     .memory-suggestions-header {
       display: flex; align-items: center; gap: 8px;
@@ -776,9 +835,13 @@
   </div>
 
   <div class="extract-area" id="extractArea" style="display:none;">
-    <div class="extract-file-row">
-      <button class="btn-upload" onclick="document.getElementById('fileInput').click()">Upload file</button>
-      <span class="file-label" id="fileLabel">or paste text below · .txt, .md, .pdf</span>
+    <div class="dropzone" id="extractDropzone"
+      onclick="document.getElementById('fileInput').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="event.preventDefault();this.classList.remove('drag-over');handleFileUpload(event.dataTransfer.files[0])">
+      <div class="dz-text">Drop a file here or <span class="dz-link">browse</span></div>
+      <div class="dz-subtext" id="fileLabel">.txt · .md · .pdf · or paste text below</div>
     </div>
     <input type="file" id="fileInput" accept=".txt,.md,.pdf" style="display:none"
       onchange="handleFileUpload(this.files[0])">
@@ -796,6 +859,7 @@
     </div>
   </div>
 
+  <div class="board-summary-strip" id="boardSummaryStrip"></div>
   <div class="board" id="board">
     <!-- columns rendered by JS -->
   </div>
@@ -825,7 +889,10 @@
 ══════════════════════════════════════ -->
 <div class="panel" id="panel-decode">
   <div class="tool-panel">
-    <p class="tool-description">Expands workplace shorthand and acronyms using your glossary.</p>
+    <div class="panel-header" style="padding-left:0;padding-top:0;">
+      <h2>Decode</h2>
+      <p>Expands workplace shorthand and acronyms using your glossary.</p>
+    </div>
     <textarea id="decodeInput"
       placeholder='Paste shorthand text (e.g. "ask todd about the PSR for phoenix")'></textarea>
     <div>
@@ -840,7 +907,10 @@
 ══════════════════════════════════════ -->
 <div class="panel" id="panel-search">
   <div class="tool-panel">
-    <p class="tool-description">Searches across all memory files — people, projects, glossary, and notes.</p>
+    <div class="panel-header" style="padding-left:0;padding-top:0;">
+      <h2>Search</h2>
+      <p>Searches across all memory files — people, projects, glossary, and notes.</p>
+    </div>
     <input type="text" id="searchInput" placeholder="Search memory…" />
     <div>
       <button class="btn" onclick="searchMemory()">Search</button>
@@ -854,6 +924,10 @@
 ══════════════════════════════════════ -->
 <div class="panel" id="panel-chat">
   <div class="tool-panel">
+    <div class="panel-header" style="padding-left:0;padding-top:0;">
+      <h2>Chat</h2>
+      <p>Ask questions using your memory context — people, projects, and terms are loaded automatically.</p>
+    </div>
     <div class="chat-messages" id="chatMessages"></div>
     <div class="chat-model-label" id="chatModelLabel">—</div>
     <div class="chat-input-row">
@@ -869,11 +943,14 @@
 ══════════════════════════════════════ -->
 <div class="panel" id="panel-logs">
   <div class="tool-panel">
-    <div style="display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
-      <h2 style="font-size:14px; font-weight:600; color:var(--text-secondary); margin:0;">Extraction Log</h2>
-      <button class="btn btn-secondary" style="font-size:12px; padding:5px 12px;" onclick="loadLogs()">Refresh</button>
+    <div class="panel-header" style="padding-left:0;padding-top:0;display:flex;align-items:flex-start;justify-content:space-between;flex-direction:row;gap:12px;">
+      <div>
+        <h2>Extraction Log</h2>
+        <p>Per-run metrics for every transcript extraction — chunks, tasks found, token usage.</p>
+      </div>
+      <button class="btn-ghost" onclick="loadLogs()" style="flex-shrink:0;margin-top:4px;">↻ Refresh</button>
     </div>
-    <div id="logsContainer" style="flex:1; overflow-y:auto; margin-top:8px;"></div>
+    <div id="logsContainer" style="flex:1; overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -1069,6 +1146,18 @@
   function renderBoard() {
     const board = document.getElementById('board');
     board.innerHTML = '';
+
+    // Populate summary strip
+    const strip = document.getElementById('boardSummaryStrip');
+    if (strip) {
+      const counts = SECTIONS.map(sec => ({ label: sec.label, count: (tasksData?.sections?.[sec.id] || []).length }));
+      strip.innerHTML = counts.map((s, i) => `
+        ${i > 0 ? '<div class="board-summary-divider"></div>' : ''}
+        <div class="board-summary-item">
+          <div class="board-summary-value">${s.count}</div>
+          <div class="board-summary-label">${esc(s.label)}</div>
+        </div>`).join('');
+    }
 
     SECTIONS.forEach(sec => {
       const tasks = tasksData?.sections?.[sec.id] || [];
@@ -1440,7 +1529,7 @@
       label.textContent = `${file.name} · ${(text.length / 1000).toFixed(1)}k chars`;
       document.getElementById('fileInput').value = '';
     } catch (e) {
-      label.textContent = 'or paste text below · .txt, .md, .pdf';
+      label.textContent = '.txt · .md · .pdf · or paste text below';
       toast('Error: ' + e.message);
     }
   }
