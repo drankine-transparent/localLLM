@@ -1,7 +1,8 @@
 """LLM prompt templates for task extraction, memory decode, and search."""
 
-# Max chars to send to the LLM — ~3000 tokens for prompt + ~9000 tokens for text
-MAX_INPUT_CHARS = 12000
+# Max chars to send to the LLM per chunk — ~2000 tokens of text + ~400 token template overhead
+# Fits comfortably in a 4096-token context window; was 12000 which required 8192+ context
+MAX_INPUT_CHARS = 8000
 
 def truncate(text: str, max_chars: int = MAX_INPUT_CHARS) -> str:
     if len(text) <= max_chars:
@@ -43,6 +44,14 @@ Transcript:
 
 
 
+def build_extraction_prompt(text: str, provider: str = "lmstudio") -> str:
+    """Format the extraction prompt, stripping /no_think for non-local providers."""
+    prompt = TASK_EXTRACTION.format(text=text)
+    if provider != "lmstudio":
+        prompt = prompt.replace("\n\n/no_think\n\n", "\n\n")
+    return prompt
+
+
 CHAT_SYSTEM = """Helpful workplace assistant. Context:
 {context}
 
@@ -53,13 +62,19 @@ MEMORY_SUGGEST = """Review this meeting transcript and identify information wort
 What's already in memory:
 {claude_md}
 
-Find ONLY new information not already listed above:
-1. People mentioned who aren't in the People table
-2. New acronyms, terms, or project names not in the glossary
-3. Key facts, decisions, or context worth remembering
+Find ONLY new information not already listed above (max 10 items, empty array if nothing new):
+1. People mentioned who aren't already known — type: person, dest: people/first-last.md
+2. New acronyms, terms, or shorthand not in the glossary — type: term, dest: glossary.md
+3. Active projects, clients, or initiatives worth tracking — type: project, dest: projects/project-name.md
+4. Key facts, preferences, or context about Dee/Darren — type: fact, dest: profile.md
 
-Return ONLY a JSON array (max 6 items, empty array if nothing new):
-[{{"type":"person","label":"name","detail":"role or context"}},{{"type":"term","label":"ACRONYM","detail":"what it means and when used"}},{{"type":"fact","label":"topic","detail":"key fact worth remembering"}}]
+Return ONLY a JSON array:
+[
+  {{"type":"person","label":"Full Name","detail":"role or context","dest":"people/first-last.md"}},
+  {{"type":"term","label":"ACRONYM","detail":"what it means and when used","dest":"glossary.md"}},
+  {{"type":"project","label":"Project Name","detail":"what it is and current status","dest":"projects/project-name.md"}},
+  {{"type":"fact","label":"topic","detail":"key fact worth remembering","dest":"profile.md"}}
+]
 
 No markdown. No explanation.
 
@@ -68,7 +83,7 @@ No markdown. No explanation.
 Transcript:
 {text}"""
 
-MEMORY_LEARN = """You manage a workplace memory system. Save new information to the right file.
+MEMORY_LEARN = """You manage a workplace memory system. Decide where to save new information and what to write.
 
 Information to save:
 {text}
@@ -81,14 +96,13 @@ Current memory files:
 {glossary_md}
 
 Rules:
-- New acronym or term → add a row to glossary.md in the matching table (Acronyms, Internal Terms, Nicknames, or Project Codenames)
-- New person info → create people/firstname-lastname.md with a short profile
-- New project info → create projects/project-name.md with details
-- Preference or fact about Darren → add to profile.md in the right section
-- Preserve ALL existing content; only append the new information
-- Keep additions concise (1-4 lines)
+- New acronym or term → file: glossary.md, append: a markdown table row "| Term | Meaning | Context |"
+- New person info → file: people/firstname-lastname.md, append: a short markdown profile (name, role, context)
+- New project info → file: projects/project-name.md, append: project name, description, status
+- Preference or fact about Dee/Darren → file: profile.md, append: "**Fact:** label — detail"
+- Keep the append value concise (1-4 lines). Do NOT include existing file content.
 
 Return ONLY a JSON object — no markdown, no explanation:
-{{"file": "relative/path.md", "content": "...complete updated file content..."}}
+{{"file": "relative/path.md", "append": "...only the new content to add..."}}
 
 /no_think"""

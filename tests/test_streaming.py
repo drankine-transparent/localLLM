@@ -3,7 +3,6 @@
 import asyncio
 import sys
 import os
-import types
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -40,6 +39,14 @@ def _fake_model_list(model_id: str = "test-model"):
     return models
 
 
+def _mock_client(chunks, model_id="test-model"):
+    """Return a mock OpenAI client pre-configured for streaming."""
+    client = MagicMock()
+    client.models.list.return_value = _fake_model_list(model_id)
+    client.chat.completions.create.return_value = iter(chunks)
+    return client
+
+
 def _run(coro):
     return asyncio.run(coro)
 
@@ -55,9 +62,7 @@ class TestChatStreamWithUsage:
             _make_chunk(' one"'),
             _make_chunk("]"),
         ]
-        with patch.object(llm.client, "models") as mock_models, \
-             patch.object(llm.client.chat.completions, "create", return_value=iter(chunks)):
-            mock_models.list.return_value = _fake_model_list()
+        with patch.object(llm, '_make_client', return_value=_mock_client(chunks)):
             result = _run(llm.chat_stream_with_usage("sys", "user"))
 
         assert result.content == '["task one"]'
@@ -69,9 +74,7 @@ class TestChatStreamWithUsage:
             _make_chunk(" world"),
         ]
         calls = []
-        with patch.object(llm.client, "models") as mock_models, \
-             patch.object(llm.client.chat.completions, "create", return_value=iter(chunks)):
-            mock_models.list.return_value = _fake_model_list()
+        with patch.object(llm, '_make_client', return_value=_mock_client(chunks)):
             _run(llm.chat_stream_with_usage("sys", "user", on_progress=lambda c, t: calls.append((c, t))))
 
         assert len(calls) == 2
@@ -81,9 +84,7 @@ class TestChatStreamWithUsage:
     def test_stream_returns_chat_result(self):
         """Return value is a ChatResult dataclass with expected fields."""
         chunks = [_make_chunk('[]')]
-        with patch.object(llm.client, "models") as mock_models, \
-             patch.object(llm.client.chat.completions, "create", return_value=iter(chunks)):
-            mock_models.list.return_value = _fake_model_list("my-model")
+        with patch.object(llm, '_make_client', return_value=_mock_client(chunks, "my-model")):
             result = _run(llm.chat_stream_with_usage("sys", "user"))
 
         assert isinstance(result, ChatResult)
@@ -95,10 +96,8 @@ class TestChatStreamWithUsage:
     def test_stream_no_progress_callback(self):
         """Works correctly when on_progress=None (default) — no error raised."""
         chunks = [_make_chunk("data")]
-        with patch.object(llm.client, "models") as mock_models, \
-             patch.object(llm.client.chat.completions, "create", return_value=iter(chunks)):
-            mock_models.list.return_value = _fake_model_list()
-            result = _run(llm.chat_stream_with_usage("sys", "user"))  # no on_progress arg
+        with patch.object(llm, '_make_client', return_value=_mock_client(chunks)):
+            result = _run(llm.chat_stream_with_usage("sys", "user"))
 
         assert result.content == "data"
 
@@ -110,9 +109,7 @@ class TestChatStreamWithUsage:
             _make_chunk(None),
         ]
         calls = []
-        with patch.object(llm.client, "models") as mock_models, \
-             patch.object(llm.client.chat.completions, "create", return_value=iter(chunks)):
-            mock_models.list.return_value = _fake_model_list()
+        with patch.object(llm, '_make_client', return_value=_mock_client(chunks)):
             result = _run(llm.chat_stream_with_usage("sys", "user", on_progress=lambda c, t: calls.append((c, t))))
 
         assert result.content == "ok"

@@ -1,42 +1,76 @@
-"""LM Studio client using OpenAI-compatible API."""
+"""LLM client — supports LM Studio (local) and OpenAI (cloud)."""
 
 import asyncio
+import os
 from dataclasses import dataclass
+from dotenv import load_dotenv
 from openai import OpenAI
 import json
 
-LM_STUDIO_URL = "http://localhost:1234/v1"
+load_dotenv()
 
-client = OpenAI(base_url=LM_STUDIO_URL, api_key="lm-studio")
+LM_STUDIO_URL = "http://localhost:1234/v1"
+OPENAI_MODEL  = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+_provider: str = os.environ.get("LLM_PROVIDER", "lmstudio").lower()
+
+
+def get_provider() -> str:
+    return _provider
+
+
+def set_provider(p: str) -> None:
+    global _provider
+    if p not in ("lmstudio", "openai"):
+        raise ValueError(f"Unknown provider: {p}")
+    if p == "openai" and not os.environ.get("OPENAI_API_KEY"):
+        raise ValueError("OPENAI_API_KEY is not set in the environment.")
+    _provider = p
+
+
+def _make_client() -> OpenAI:
+    if _provider == "openai":
+        key = os.environ.get("OPENAI_API_KEY", "")
+        if not key:
+            raise RuntimeError("OPENAI_API_KEY is not set in the environment.")
+        return OpenAI(api_key=key)
+    return OpenAI(base_url=LM_STUDIO_URL, api_key="lm-studio")
+
+
+def _get_model(client: OpenAI) -> str:
+    if _provider == "openai":
+        return OPENAI_MODEL
+    try:
+        models = client.models.list()
+    except Exception as e:
+        raise RuntimeError("Cannot reach LM Studio. Is it running?") from e
+    if not models.data:
+        raise RuntimeError(
+            "No model loaded in LM Studio. "
+            "Open LM Studio, go to the Developer tab, and load a model."
+        )
+    return models.data[0].id
 
 
 async def health_check() -> dict:
-    """Check if LM Studio is running and has a model loaded."""
+    """Return connection status and active provider."""
     try:
+        client = _make_client()
+        if _provider == "openai":
+            return {"status": "connected", "provider": "openai", "models": [OPENAI_MODEL]}
         models = client.models.list()
         model_list = [m.id for m in models.data]
-        return {"status": "connected", "models": model_list}
+        return {"status": "connected", "provider": "lmstudio", "models": model_list}
     except Exception as e:
-        return {"status": "disconnected", "error": str(e)}
+        return {"status": "disconnected", "provider": _provider, "error": str(e)}
 
 
 async def chat(system_prompt: str, user_message: str) -> str:
-    """Send a chat completion request to LM Studio."""
-    # Discover the loaded model; raise a clear error if none is loaded.
-    try:
-        models = client.models.list()
-        model_list = [m.id for m in models.data]
-    except Exception as e:
-        raise RuntimeError("Cannot reach LM Studio. Is it running?") from e
-
-    if not model_list:
-        raise RuntimeError(
-            "No model is loaded in LM Studio. "
-            "Open LM Studio, go to the Developer tab, and load a model."
-        )
-
+    """Send a chat completion request."""
+    client = _make_client()
+    model = _get_model(client)
     response = client.chat.completions.create(
-        model=model_list[0],
+        model=model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
@@ -57,20 +91,10 @@ class ChatResult:
 
 async def chat_with_usage(system_prompt: str, user_message: str) -> ChatResult:
     """Same as chat() but returns content + token usage."""
-    try:
-        models = client.models.list()
-        model_list = [m.id for m in models.data]
-    except Exception as e:
-        raise RuntimeError("Cannot reach LM Studio. Is it running?") from e
-
-    if not model_list:
-        raise RuntimeError(
-            "No model is loaded in LM Studio. "
-            "Open LM Studio, go to the Developer tab, and load a model."
-        )
-
+    client = _make_client()
+    model = _get_model(client)
     response = client.chat.completions.create(
-        model=model_list[0],
+        model=model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
@@ -93,20 +117,11 @@ async def chat_stream_with_usage(
     on_progress=None,
 ) -> ChatResult:
     """Like chat_with_usage() but streams tokens, calling on_progress(chars, tokens) as they arrive."""
-    try:
-        models = client.models.list()
-        model_list = [m.id for m in models.data]
-    except Exception as e:
-        raise RuntimeError("Cannot reach LM Studio. Is it running?") from e
-
-    if not model_list:
-        raise RuntimeError(
-            "No model is loaded in LM Studio. "
-            "Open LM Studio, go to the Developer tab, and load a model."
-        )
+    client = _make_client()
+    model = _get_model(client)
 
     stream = client.chat.completions.create(
-        model=model_list[0],
+        model=model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
@@ -118,7 +133,6 @@ async def chat_stream_with_usage(
     content = ""
     prompt_tokens = 0
     completion_tokens = 0
-    model_name = model_list[0]
 
     for chunk in stream:
         delta = chunk.choices[0].delta.content if chunk.choices else None
@@ -127,7 +141,7 @@ async def chat_stream_with_usage(
             completion_tokens += 1  # approximate: one increment per stream chunk
             if on_progress:
                 on_progress(len(content), completion_tokens)
-        # LM Studio may include usage on the final chunk
+        # Provider may include usage on the final chunk
         if hasattr(chunk, "usage") and chunk.usage:
             prompt_tokens = chunk.usage.prompt_tokens or prompt_tokens
             completion_tokens = chunk.usage.completion_tokens or completion_tokens
@@ -136,7 +150,7 @@ async def chat_stream_with_usage(
 
     return ChatResult(
         content=content,
-        model=model_name,
+        model=model,
         prompt_tokens=prompt_tokens,
         completion_tokens=completion_tokens,
         total_tokens=prompt_tokens + completion_tokens,
@@ -145,7 +159,6 @@ async def chat_stream_with_usage(
 
 def parse_json(text: str) -> list | dict:
     """Extract and parse JSON from LLM text response."""
-    # Try to find JSON array first, then object
     start = text.find("[")
     end = text.rfind("]") + 1
     if start >= 0 and end > start:

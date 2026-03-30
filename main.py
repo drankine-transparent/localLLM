@@ -1,8 +1,11 @@
 """FastAPI app — Local LLM Productivity System."""
 
 import json as _json
+import re as _re
 import time
 from datetime import datetime, timezone
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -19,6 +22,7 @@ app = FastAPI(title="Local LLM Productivity")
 STATIC_DIR = Path(__file__).parent / "static"
 LOG_PATH = Path(__file__).parent / "data" / "logs" / "extract_log.jsonl"
 _extract_status: dict = {"phase": "idle"}
+_cancel_requested: bool = False
 
 
 def write_extract_log(entry: dict) -> None:
@@ -46,6 +50,7 @@ class SubtaskCreate(BaseModel):
 
 class TextInput(BaseModel):
     text: str
+    filename: str | None = None
 
 
 class MemoryWrite(BaseModel):
@@ -55,12 +60,18 @@ class MemoryWrite(BaseModel):
 
 
 
+class ProviderSwitch(BaseModel):
+    provider: str  # "lmstudio" | "openai"
+
+
 class ChatMessage(BaseModel):
     message: str
 
 
 class LearnInput(BaseModel):
     text: str
+    dest_hint: str | None = None
+    source: str | None = None
 
 
 class SuggestInput(BaseModel):
@@ -79,6 +90,22 @@ async def health():
     return await llm.health_check()
 
 
+# --- Settings ---
+
+@app.get("/api/settings")
+async def get_settings():
+    return {"provider": llm.get_provider(), "openai_model": llm.OPENAI_MODEL}
+
+
+@app.post("/api/settings")
+async def update_settings(body: ProviderSwitch):
+    try:
+        llm.set_provider(body.provider)
+        return {"provider": llm.get_provider()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # --- Tasks ---
 
 @app.get("/api/tasks")
@@ -92,9 +119,17 @@ async def create_task(body: TaskCreate):
     return task
 
 
+@app.post("/api/tasks/extract/cancel")
+async def cancel_extract():
+    global _cancel_requested
+    _cancel_requested = True
+    return {"cancelled": True}
+
+
 @app.post("/api/tasks/extract")
 async def extract_tasks(body: TextInput):
-    global _extract_status
+    global _extract_status, _cancel_requested
+    _cancel_requested = False
     try:
         chunk_size = prompts.MAX_INPUT_CHARS
         text = body.text
@@ -119,18 +154,31 @@ async def extract_tasks(body: TextInput):
         model_used = "unknown"
 
         for idx, chunk in enumerate(chunks):
+            if _cancel_requested:
+                print(f"[EXTRACT] Cancelled after {idx} chunk(s)")
+                break
             chunk_start = time.monotonic()
-            prompt = prompts.TASK_EXTRACTION.format(text=chunk)
+            prompt = prompts.build_extraction_prompt(chunk, llm.get_provider())
             _extract_status["current_chunk"] = {"index": idx + 1, "chars": 0, "tokens": 0}
 
             def on_progress(chars: int, tokens: int, _idx: int = idx) -> None:
                 _extract_status["current_chunk"] = {"index": _idx + 1, "chars": chars, "tokens": tokens}
 
-            cr = await llm.chat_stream_with_usage(
-                "You are a precise task extractor. Output only valid JSON arrays. No markdown, no explanation.",
-                prompt,
-                on_progress=on_progress,
-            )
+            try:
+                cr = await llm.chat_stream_with_usage(
+                    "You are a precise task extractor. Output only valid JSON arrays. No markdown, no explanation.",
+                    prompt,
+                    on_progress=on_progress,
+                )
+            except Exception as llm_err:
+                msg = str(llm_err)
+                if "tokens to keep" in msg or "context length" in msg.lower():
+                    raise ValueError(
+                        "Model context window is too small for this input. "
+                        "In LM Studio \u2192 Model Settings, increase \u2018Context Length\u2019 "
+                        "to at least 8192 tokens, then reload the model."
+                    )
+                raise
             model_used = cr.model
             total_prompt_tokens += cr.prompt_tokens
             total_completion_tokens += cr.completion_tokens
@@ -175,6 +223,15 @@ async def extract_tasks(body: TextInput):
             )
             added.append(task)
 
+        # Extract meeting name from first task context tag: `Meeting Name · YYYY-MM-DD`
+        meeting_name = None
+        for item in all_tasks:
+            ctx = item.get("context", "") if isinstance(item, dict) else ""
+            m = _re.search(r"`([^`]+·[^`]+)`", ctx)
+            if m:
+                meeting_name = m.group(1).strip()
+                break
+
         duration = round(time.monotonic() - extract_start, 1)
         write_extract_log({
             "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
@@ -186,14 +243,17 @@ async def extract_tasks(body: TextInput):
             "chunks": len(chunks),
             "action_items": len(added),
             "input_chars": len(text),
+            "filename": body.filename or None,
+            "meeting_name": meeting_name,
+            "task_ids": [t["id"] for t in added],
         })
 
-        _extract_status["phase"] = "done"
+        _extract_status["phase"] = "cancelled" if _cancel_requested else "done"
         _extract_status["duration_seconds"] = duration
         _extract_status["extracted"] = len(added)
 
         print(f"[EXTRACT] Total: {len(added)} unique tasks from {len(all_tasks)} raw")
-        return {"extracted": len(added), "tasks": added}
+        return {"extracted": len(added), "tasks": added, "meeting_name": meeting_name}
     except Exception as e:
         _extract_status = {"phase": "error", "message": str(e)}
         print(f"[EXTRACT] Error: {e}")
@@ -286,8 +346,13 @@ async def learn_memory(body: LearnInput):
     try:
         claude_md = prompts.truncate(memory.get_hot_cache(), 2000)
         glossary_md = prompts.truncate(memory.get_glossary(), 2000)
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        source_label = body.source or "Manual"
+        learn_text = f"{body.text}\nSource: {source_label} · {ts}"
+        if body.dest_hint:
+            learn_text += f"\nPreferred destination: {body.dest_hint}"
         prompt = prompts.MEMORY_LEARN.format(
-            text=prompts.truncate(body.text, 1000),
+            text=prompts.truncate(learn_text, 1000),
             claude_md=claude_md,
             glossary_md=glossary_md,
         )
@@ -295,9 +360,13 @@ async def learn_memory(body: LearnInput):
             "You manage a memory file system. Return only valid JSON.", prompt
         )
         parsed = llm.parse_json(result)
-        if not isinstance(parsed, dict) or "file" not in parsed or "content" not in parsed:
+        if not isinstance(parsed, dict) or "file" not in parsed or "append" not in parsed:
             raise ValueError(f"Unexpected LLM response: {result[:200]}")
-        saved = memory.write_file(parsed["file"], parsed["content"])
+        existing = memory.read_file(parsed["file"]) or ""
+        attribution = f"\n*{source_label} · {ts}*"
+        new_snippet = parsed["append"].strip() + attribution
+        full_content = (existing.rstrip() + "\n\n" + new_snippet + "\n") if existing else (new_snippet + "\n")
+        saved = memory.write_file(parsed["file"], full_content)
         return {"saved": True, "file": parsed["file"], "size": saved["size"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

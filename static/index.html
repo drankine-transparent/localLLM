@@ -178,6 +178,20 @@
       border-top: 1px solid var(--border-light);
       flex-shrink: 0;
     }
+    .provider-toggle {
+      display: flex; gap: 4px; margin-top: 8px;
+    }
+    .sidebar.collapsed .provider-toggle { display: none; }
+    .ptog-btn {
+      flex: 1; font-size: 10px; padding: 4px 6px; border-radius: 4px;
+      border: 1px solid var(--border-light); background: transparent;
+      color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+      font-family: inherit;
+    }
+    .ptog-btn:hover { border-color: var(--tp-teal-dark); color: var(--tp-teal-dark); }
+    .ptog-btn.active {
+      background: var(--tp-teal-dark); color: white; border-color: var(--tp-teal-dark);
+    }
 
     .status {
       display: flex; align-items: center; gap: 7px;
@@ -279,6 +293,11 @@
       transition: all 0.15s;
     }
     .btn-ghost:hover { background: var(--tp-teal-ice); color: var(--tp-teal-dark); }
+    .btn-danger {
+      background: #c0392b; color: white; border: none;
+    }
+    .btn-danger:hover { background: #a93226; }
+    .btn-danger:disabled { opacity: 0.5; cursor: default; }
 
     /* Semantic badge system */
     .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
@@ -867,6 +886,7 @@
       background: var(--bg-card);
       border-radius: 8px;
       border: 1px solid var(--border-light);
+      position: relative;
     }
 
     .tool-panel textarea,
@@ -958,9 +978,11 @@
       letter-spacing: 0.05em; padding: 2px 7px; border-radius: 4px;
       flex-shrink: 0; margin-top: 2px;
     }
-    .suggestion-type.type-person { background: #e8f4fd; color: #1a6fa8; }
-    .suggestion-type.type-term   { background: #f0f0ff; color: #5555cc; }
-    .suggestion-type.type-fact   { background: #f0faf5; color: #2a7a50; }
+    .suggestion-type.type-person  { background: #e8f4fd; color: #1a6fa8; }
+    .suggestion-type.type-term    { background: #f0f0ff; color: #5555cc; }
+    .suggestion-type.type-fact    { background: #f0faf5; color: #2a7a50; }
+    .suggestion-type.type-project { background: #fff4e8; color: #a05a00; }
+    .suggestion-dest { font-size: 10px; color: var(--text-muted); margin-top: 3px; font-family: monospace; }
     .suggestion-content { flex: 1; min-width: 0; }
     .suggestion-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
     .suggestion-detail { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
@@ -1002,6 +1024,53 @@
       transition: border-color 0.15s;
     }
     .chat-input-row input:focus { outline: none; border-color: var(--accent); }
+
+    /* Meeting task view overlay */
+    .log-meeting-link {
+      cursor: pointer;
+      color: var(--tp-teal);
+      text-decoration: underline;
+      text-decoration-style: dotted;
+    }
+    .log-meeting-link:hover { color: var(--tp-teal-dark); }
+    .meeting-view {
+      position: absolute; inset: 0;
+      background: var(--bg-card);
+      z-index: 10;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+    .meeting-view-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-light);
+      flex-shrink: 0;
+    }
+    .mv-back-btn {
+      font-size: 12px; padding: 4px 10px; border-radius: 4px;
+      border: 1px solid var(--border-light); background: transparent;
+      color: var(--text-secondary); cursor: pointer;
+    }
+    .mv-back-btn:hover { background: var(--bg-hover); }
+    .mv-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0; }
+    .mv-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+    .mv-section-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--text-muted);
+      margin: 16px 0 6px;
+    }
+    .mv-section-label:first-child { margin-top: 4px; }
+    .mv-task-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 8px 0; border-bottom: 1px solid var(--border-light);
+    }
+    .mv-task-row:last-child { border-bottom: none; }
+    .mv-task-check { width: 14px; height: 14px; margin-top: 2px; flex-shrink: 0; }
+    .mv-task-title { font-size: 13px; color: var(--text-primary); line-height: 1.4; }
+    .mv-task-title.done { text-decoration: line-through; color: var(--text-muted); }
+    .mv-task-context { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .mv-empty { color: var(--text-muted); font-size: 13px; padding: 24px 0; text-align: center; }
 
     /* Toast */
     .toast {
@@ -1072,6 +1141,10 @@
     <div class="status">
       <div class="status-dot" id="statusDot"></div>
       <span id="statusText">Checking...</span>
+    </div>
+    <div class="provider-toggle">
+      <button class="ptog-btn" id="ptog-lmstudio" onclick="switchProvider('lmstudio')">LM Studio</button>
+      <button class="ptog-btn" id="ptog-openai" onclick="switchProvider('openai')">OpenAI</button>
     </div>
   </div>
 </aside>
@@ -1170,6 +1243,7 @@
     <div class="extract-buttons" id="extractButtons" style="display:none;">
       <button class="btn" id="extractBtn" onclick="extractTasks()">Extract Tasks</button>
       <button class="btn btn-secondary" onclick="extractAnother()">Reset</button>
+      <button class="btn btn-danger" id="extractStopBtn" onclick="cancelExtract()" style="display:none;">Stop</button>
     </div>
 
     <div class="memory-suggestions" id="memorySuggestions" style="display:none;">
@@ -1248,6 +1322,14 @@
       <button class="btn-ghost" onclick="loadLogs()" style="flex-shrink:0;margin-top:4px;">↻ Refresh</button>
     </div>
     <div id="logsContainer" style="flex:1; overflow-y:auto;"></div>
+    <!-- Meeting task view overlay -->
+    <div id="meetingView" class="meeting-view" style="display:none">
+      <div class="meeting-view-header">
+        <button class="mv-back-btn" onclick="closeMeetingView()">← Back to Log</button>
+        <h2 class="mv-title" id="mvTitle"></h2>
+      </div>
+      <div class="mv-body" id="mvBody"></div>
+    </div>
   </div>
 </div>
 
@@ -1264,6 +1346,7 @@
       <span class="activity-count-badge" id="activityCount" style="display:none;"></span>
     </div>
     <button class="activity-expand-btn" id="activityExpandBtn" onclick="event.stopPropagation();toggleActivityBar()">↑ Expand</button>
+    <button class="activity-expand-btn" onclick="event.stopPropagation();activityClear()" style="margin-left:8px;color:rgba(255,255,255,0.35);">✕ Clear</button>
   </div>
   <div class="activity-log" id="activityLog" style="display:none;"></div>
 </div>
@@ -1285,13 +1368,11 @@
   // ── Activity Bar ──────────────────────────────────────
   let _activityExpanded  = false;
   let _activityCount     = 0;
-  let _activityHideTimer = null;
   let _activityRunningEl = null;
 
   function activityShow() {
     document.getElementById('activityBar').classList.remove('hidden');
     document.body.style.paddingBottom = '38px';
-    if (_activityHideTimer) { clearTimeout(_activityHideTimer); _activityHideTimer = null; }
   }
 
   function activityHide() {
@@ -1302,9 +1383,11 @@
     document.getElementById('activityExpandBtn').textContent = '↑ Expand';
   }
 
-  function activityScheduleHide() {
-    if (_activityHideTimer) clearTimeout(_activityHideTimer);
-    _activityHideTimer = setTimeout(activityHide, 8000);
+  function activityClear() {
+    document.getElementById('activityLog').innerHTML = '';
+    _activityCount = 0;
+    document.getElementById('activityCount').style.display = 'none';
+    activityHide();
   }
 
   function toggleActivityBar() {
@@ -1394,6 +1477,33 @@
   }
 
   // ── Health check ───────────────────────────────────────
+  async function loadSettings() {
+    try {
+      const d = await fetch('/api/settings').then(r => r.json());
+      applyProvider(d.provider);
+    } catch {}
+  }
+
+  async function switchProvider(p) {
+    const r = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: p }),
+    });
+    if (!r.ok) {
+      const d = await r.json();
+      toast('Error: ' + d.detail);
+      return;
+    }
+    applyProvider(p);
+    checkHealth();
+  }
+
+  function applyProvider(p) {
+    document.getElementById('ptog-lmstudio').classList.toggle('active', p === 'lmstudio');
+    document.getElementById('ptog-openai').classList.toggle('active', p === 'openai');
+  }
+
   async function checkHealth() {
     try {
       const r = await fetch('/api/health');
@@ -1759,7 +1869,6 @@
         _lastErrorMsg = s.message;
         activityLogError(`[${fmtTime(new Date())}] Error: ${s.message}`);
         activitySetStatus('done', `Error: ${s.message}`);
-        activityScheduleHide();
       }
     }
   }
@@ -1779,13 +1888,26 @@
   }
 
   // ── Memory suggestions ─────────────────────────────────
-  function showSuggestions(suggestions) {
+  function destFromSuggestion(s) {
+    if (s.dest) return s.dest;
+    if (s.type === 'person') {
+      const slug = s.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      return `people/${slug}.md`;
+    }
+    if (s.type === 'term')    return 'glossary.md';
+    if (s.type === 'project') return `projects/${s.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}.md`;
+    return 'profile.md';
+  }
+
+  function showSuggestions(suggestions, meetingName) {
     const container = document.getElementById('memorySuggestions');
     const cardsEl = document.getElementById('suggestionCards');
     document.getElementById('suggestionBadge').textContent = suggestions.length;
     cardsEl.innerHTML = '';
+    const source = meetingName || 'Import';
     suggestions.forEach(s => {
-      const typeLabel = s.type === 'person' ? 'Person' : s.type === 'term' ? 'Term' : 'Fact';
+      const typeLabel = {person:'Person', term:'Term', project:'Project', fact:'Fact'}[s.type] || 'Fact';
+      const dest = destFromSuggestion(s);
       const card = document.createElement('div');
       card.className = 'suggestion-card';
       card.innerHTML = `
@@ -1793,6 +1915,7 @@
         <div class="suggestion-content">
           <div class="suggestion-label">${esc(s.label)}</div>
           <div class="suggestion-detail">${esc(s.detail)}</div>
+          <div class="suggestion-dest">→ ${esc(dest)}</div>
         </div>
         <div class="suggestion-actions">
           <button class="btn-suggestion-add">Add</button>
@@ -1807,7 +1930,7 @@
         try {
           const r = await fetch('/api/memory/learn', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ text: `${typeLabel}: ${s.label} — ${s.detail}` }),
+            body: JSON.stringify({ text: `${typeLabel}: ${s.label} — ${s.detail}`, dest_hint: dest, source }),
           });
           const d = await r.json();
           if (!r.ok) throw new Error(d.detail);
@@ -1821,7 +1944,6 @@
           if (runEl) { runEl.remove(); _activityRunningEl = null; }
           activityLogError(`[${fmtTime(new Date())}] Error saving memory: ${e.message}`);
           activitySetStatus('done', `Error: ${e.message}`);
-          activityScheduleHide();
           addBtn.disabled = false;
           addBtn.textContent = 'Add';
           toast('Error: ' + e.message);
@@ -1841,7 +1963,6 @@
       document.getElementById('memorySuggestions').style.display = 'none';
       if (_autoCloseTimer === null) {
         activitySetStatus('done', 'All done');
-        activityScheduleHide();
       }
     }
   }
@@ -1851,7 +1972,7 @@
     document.getElementById('suggestionCards').innerHTML = '';
   }
 
-  async function fetchMemorySuggestions(text) {
+  async function fetchMemorySuggestions(text, meetingName) {
     try {
       activityLogRunning(`[${fmtTime(new Date())}] Scanning for memory suggestions…`);
       const r = await fetch('/api/memory/suggest', {
@@ -1862,22 +1983,21 @@
       if (Array.isArray(suggestions) && suggestions.length) {
         activityLogDone(`[${fmtTime(new Date())}] ${suggestions.length} memory suggestion${suggestions.length !== 1 ? 's' : ''} found`);
         activitySetStatus('done', `${suggestions.length} memory suggestion${suggestions.length !== 1 ? 's' : ''} ready`);
-        showSuggestions(suggestions);
+        showSuggestions(suggestions, meetingName);
         _autoCloseTimer = null; // Stay open until user dismisses
       } else {
         activityLogDone(`[${fmtTime(new Date())}] No new memory suggestions`);
         activitySetStatus('done', 'No new memory suggestions');
-        activityScheduleHide();
         _autoCloseTimer = null;
       }
     } catch {
-      activityScheduleHide();
       _autoCloseTimer = null;
     }
   }
 
   // Extract
   let _extractType = null;
+  let currentFileName = '';
 
   function selectExtractType(type) {
     _extractType = type;
@@ -1899,6 +2019,7 @@
     document.getElementById('typeCardText').classList.remove('active');
     document.getElementById('extractText').value = '';
     document.getElementById('fileLabel').textContent = '.txt · .md · .pdf';
+    currentFileName = '';
   }
 
   function navigateTo(panelId) {
@@ -1937,17 +2058,32 @@
       document.getElementById('extractText').value = text;
       label.textContent = `${file.name} · ${(text.length / 1000).toFixed(1)}k chars`;
       document.getElementById('fileInput').value = '';
+      currentFileName = file.name;
     } catch (e) {
       label.textContent = '.txt · .md · .pdf · or paste text below';
       toast('Error: ' + e.message);
     }
   }
 
+  async function cancelExtract() {
+    const stopBtn = document.getElementById('extractStopBtn');
+    stopBtn.disabled = true;
+    stopBtn.textContent = 'Stopping…';
+    try {
+      await fetch('/api/tasks/extract/cancel', { method: 'POST' });
+      activityLogInfo(`[${fmtTime(new Date())}] Cancel requested — waiting for current chunk to finish…`);
+    } catch {}
+  }
+
   async function extractTasks() {
     const text = document.getElementById('extractText').value.trim();
     if (!text) return;
     const btn = document.getElementById('extractBtn');
+    const stopBtn = document.getElementById('extractStopBtn');
     btn.disabled = true;
+    stopBtn.style.display = '';
+    stopBtn.disabled = false;
+    stopBtn.textContent = 'Stop';
     const chunkCount = Math.ceil(text.length / 12000);
     btn.innerHTML = chunkCount > 1
       ? `<span class="spinner"></span> Extracting… (${chunkCount} chunks)`
@@ -1959,7 +2095,7 @@
       const r = await fetch('/api/tasks/extract', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, filename: currentFileName || null }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail || 'Extraction failed');
@@ -1968,6 +2104,7 @@
       toast(`Extracted ${d.extracted} task(s)`);
       document.getElementById('extractText').value = '';
       document.getElementById('fileLabel').textContent = '.txt · .md · .pdf';
+      currentFileName = '';
       await loadTasks();
       // Show success state
       document.getElementById('extractTypeCards').style.display = 'none';
@@ -1979,16 +2116,18 @@
       document.getElementById('extractSuccessMeta').textContent =
         `from ${chunkCount} chunk${chunkCount !== 1 ? 's' : ''} · ${(text.length / 1000).toFixed(1)}k chars`;
       document.getElementById('extractSuccess').style.display = '';
-      fetchMemorySuggestions(text);
+      fetchMemorySuggestions(text, d.meeting_name || null);
     } catch (e) {
       stopProgressPolling();
       activityLogError(`[${fmtTime(new Date())}] Error: ${e.message}`);
       activitySetStatus('done', `Error: ${e.message}`);
-      activityScheduleHide();
       toast('Error: ' + e.message);
     } finally {
       btn.disabled = false;
       btn.textContent = 'Extract Tasks';
+      stopBtn.style.display = 'none';
+      stopBtn.disabled = false;
+      stopBtn.textContent = 'Stop';
     }
   }
 
@@ -2308,19 +2447,17 @@
       const r = await fetch('/api/memory/learn', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, source: 'Chat' }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail || 'Save failed');
       activityLogDone(`[${fmtTime(new Date())}] Memory saved → ${d.file}`);
       activitySetStatus('done', `Memory saved → ${d.file}`);
-      activityScheduleHide();
       btn.textContent = `Saved → ${d.file}`;
       toast(`Saved to ${d.file}`);
     } catch (e) {
       activityLogError(`[${fmtTime(new Date())}] Error: ${e.message}`);
       activitySetStatus('done', `Error: ${e.message}`);
-      activityScheduleHide();
       btn.disabled = false;
       btn.textContent = 'Save to Memory';
       toast('Error: ' + e.message);
@@ -2331,6 +2468,12 @@
   // LOGS
   // ══════════════════════════════════════════════════════
 
+  function fmtDuration(secs) {
+    const m = Math.floor(secs / 60);
+    const s = Math.round(secs % 60);
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  }
+
   function formatLogEntry(e) {
     const d = new Date(e.timestamp + 'Z');
     const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -2339,18 +2482,21 @@
     const tokens = (e.total_tokens || 0).toLocaleString();
     const ptok = (e.prompt_tokens || 0).toLocaleString();
     const ctok = (e.completion_tokens || 0).toLocaleString();
+    const fileDisplay = e.filename ? e.filename.replace(/\.[^.]+$/, '') : 'Pasted text';
     return `
       <div style="background:var(--bg-card);border:1px solid var(--border-light);
                   border-radius:10px;padding:14px 16px;margin-bottom:10px;">
+        ${e.meeting_name ? `<div style="font-size:13px;font-weight:600;margin-bottom:2px;"><span class="log-meeting-link" onclick="openMeetingView(${JSON.stringify(e.meeting_name).replace(/"/g, '&quot;')}, ${JSON.stringify(e.task_ids || []).replace(/"/g, '&quot;')})" title="View extracted tasks">${esc(e.meeting_name)} ↗</span></div>` : ''}
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">${esc(fileDisplay)}</div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-          <span style="font-size:13px;font-weight:600;color:var(--text-primary);">
+          <span style="font-size:12px;color:var(--text-secondary);">
             ${esc(dateStr)} at ${esc(timeStr)}
           </span>
           <span style="font-size:11px;color:var(--text-muted);">${esc(modelShort)}</span>
         </div>
         <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);">
           <span>${e.action_items} action item${e.action_items !== 1 ? 's' : ''}</span>
-          <span>${e.duration_seconds}s</span>
+          <span>${fmtDuration(e.duration_seconds)}</span>
           <span>${tokens} tokens <span style="color:var(--text-muted);">(${ptok} in + ${ctok} out)</span></span>
           <span>${e.chunks} chunk${e.chunks !== 1 ? 's' : ''}</span>
           <span>${((e.input_chars || 0) / 1000).toFixed(1)}k chars</span>
@@ -2403,7 +2549,66 @@
     if (file) handleFileUpload(file);
   });
 
+  // ══════════════════════════════════════════════════════
+  // MEETING VIEW
+  // ══════════════════════════════════════════════════════
+
+  const MV_SECTIONS = [
+    {id:'active', label:'Active'},
+    {id:'waiting', label:'Waiting On'},
+    {id:'someday', label:'Someday'},
+    {id:'done', label:'Done'},
+  ];
+
+  async function openMeetingView(meetingName, taskIds) {
+    document.getElementById('mvTitle').textContent = meetingName;
+    document.getElementById('mvBody').innerHTML = '<div style="padding:8px;"><span class="spinner"></span></div>';
+    document.getElementById('meetingView').style.display = 'flex';
+
+    try {
+      const data = await fetch('/api/tasks').then(r => r.json());
+      const sections = data.sections || data;
+      const idSet = new Set(taskIds || []);
+
+      let totalFound = 0;
+      let html = '';
+
+      for (const sec of MV_SECTIONS) {
+        const tasks = (sections[sec.id] || []).filter(t =>
+          idSet.size > 0 ? idSet.has(t.id) : t.context?.includes(`\`${meetingName}\``)
+        );
+        if (!tasks.length) continue;
+        totalFound += tasks.length;
+        html += `<div class="mv-section-label">${esc(sec.label)}</div>`;
+        for (const t of tasks) {
+          const doneClass = t.done ? ' done' : '';
+          const ctx = (t.context || '').replace(/`[^`]+`/, '').trim();
+          html += `<div class="mv-task-row">
+            <input type="checkbox" class="mv-task-check" ${t.done ? 'checked' : ''} disabled>
+            <div>
+              <div class="mv-task-title${doneClass}">${esc(t.title)}</div>
+              ${ctx ? `<div class="mv-task-context">${esc(ctx)}</div>` : ''}
+            </div>
+          </div>`;
+        }
+      }
+
+      if (!totalFound) {
+        html = '<div class="mv-empty">No tasks found for this meeting.</div>';
+      }
+
+      document.getElementById('mvBody').innerHTML = html;
+    } catch (e) {
+      document.getElementById('mvBody').innerHTML = `<div class="mv-empty" style="color:#e55;">Failed to load tasks: ${esc(e.message)}</div>`;
+    }
+  }
+
+  function closeMeetingView() {
+    document.getElementById('meetingView').style.display = 'none';
+  }
+
   // ── Init ──────────────────────────────────────────────
+  loadSettings();
   checkHealth();
   setInterval(checkHealth, 15000);
   loadTasks();
