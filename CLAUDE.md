@@ -19,7 +19,7 @@ Single-page app — all frontend in one file, served by FastAPI.
 | File | Role |
 |------|------|
 | `main.py` | FastAPI app — all API routes |
-| `llm.py` | LM Studio OpenAI-compatible client wrapper |
+| `llm.py` | LLM client — supports LM Studio (local) and OpenAI (cloud), runtime-switchable |
 | `tasks.py` | `data/TASKS.md` parser and section manager |
 | `memory.py` | Memory file system (`data/memory/`) |
 | `prompts.py` | Prompt templates for extract, chat, memory learn/suggest |
@@ -67,11 +67,17 @@ Default view on file open is **Preview** (rendered markdown). Switch to Edit mod
 
 - **`data/memory/profile.md`** is the app's hot cache — loaded into LLM prompts. Do not confuse with this file.
 - **`data/TASKS.md`** is owned by the app — never edit manually; use `/api/tasks` endpoints only.
+- **`data/memory/`** is writable by Claude — `data/TASKS.md` and `data/logs/` are deny-listed in `.claude/settings.local.json`.
 - All CSS, HTML, and JS live in `static/index.html` — do not create separate asset files.
 - Design tokens are in `:root` (TP teal palette) — use CSS variables, not hardcoded hex values.
 - LLM calls go through `llm.py` — do not call the OpenAI client directly from `main.py`.
-- Chunk threshold: 12,000 chars per chunk (`MAX_INPUT_CHARS` in `prompts.py`).
+- Provider is runtime-switchable: `GET/POST /api/settings` with `{"provider": "lmstudio"|"openai"}`. Toggle in sidebar footer.
+- `OPENAI_API_KEY` must be in `.env` (not committed) to use OpenAI provider.
+- Chunk threshold: 8,000 chars per chunk (`MAX_INPUT_CHARS` in `prompts.py`).
 - LLM temperature: 0.3, fixed in `llm.py`.
+- Extraction can be cancelled mid-run: `POST /api/tasks/extract/cancel` — checked between chunks, returns partial results.
+- Memory learn API (`POST /api/memory/learn`) is append-only: LLM returns `{"file": "...", "append": "...snippet..."}`, server reads existing file and appends snippet + source attribution. Never rewrites full file content.
+- Memory source attribution is injected server-side (not by LLM) — format: `*Source · YYYY-MM-DD HH:MM*`.
 
 ---
 
@@ -86,7 +92,8 @@ Default view on file open is **Preview** (rendered markdown). Switch to Edit mod
 ## What NOT to do
 
 - Always activate venv first — system Python on this machine is 3.14
-- Do not edit `data/TASKS.md` or `data/memory/profile.md` directly in code sessions
+- Always restart uvicorn after editing any `.py` file — `pkill -f "uvicorn main:app"; uvicorn main:app --reload --port 8000`
+- Do not edit `data/TASKS.md` or `data/logs/` directly — they are app-owned and deny-listed
 - Do not add separate `.css` or `.js` files — keep everything in `static/index.html`
 - Do not hardcode hex colors — use CSS variables from `:root`
 - Do not commit `data/memory/people/` or `data/memory/exits/` — they contain PII (home addresses, personal phone numbers)
