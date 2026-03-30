@@ -62,7 +62,10 @@ MEMORY_SUGGEST = """Review this meeting transcript and identify information wort
 What's already in memory:
 {claude_md}
 
-Find ONLY new information not already listed above (max 10 items, empty array if nothing new):
+Existing saved files (do NOT suggest anything already covered by these):
+{existing_files}
+
+Find ONLY new information not already captured (max 10 items, empty array if nothing new):
 1. People mentioned who aren't already known — type: person, dest: people/first-last.md
 2. New acronyms, terms, or shorthand not in the glossary — type: term, dest: glossary.md
 3. Active projects, clients, or initiatives worth tracking — type: project, dest: projects/project-name.md
@@ -83,7 +86,7 @@ No markdown. No explanation.
 Transcript:
 {text}"""
 
-MEMORY_LEARN = """You manage a workplace memory system. Decide where to save new information and what to write.
+MEMORY_LEARN = """You manage a workplace memory system. Write the content to append to the specified file.
 
 Information to save:
 {text}
@@ -94,6 +97,9 @@ Current memory files:
 
 [glossary.md]
 {glossary_md}
+
+Existing files (use these exact paths if relevant — do not create duplicates):
+{existing_files}
 
 Rules:
 - New acronym or term → file: glossary.md, append: a markdown table row "| Term | Meaning | Context |"

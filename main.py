@@ -346,6 +346,7 @@ async def learn_memory(body: LearnInput):
     try:
         claude_md = prompts.truncate(memory.get_hot_cache(), 2000)
         glossary_md = prompts.truncate(memory.get_glossary(), 2000)
+        existing_files = "\n".join(f"- {f['path']}" for f in memory.list_files()) or "none"
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
         source_label = body.source or "Manual"
         learn_text = f"{body.text}\nSource: {source_label} · {ts}"
@@ -355,6 +356,7 @@ async def learn_memory(body: LearnInput):
             text=prompts.truncate(learn_text, 1000),
             claude_md=claude_md,
             glossary_md=glossary_md,
+            existing_files=existing_files,
         )
         result = await llm.chat(
             "You manage a memory file system. Return only valid JSON.", prompt
@@ -362,12 +364,19 @@ async def learn_memory(body: LearnInput):
         parsed = llm.parse_json(result)
         if not isinstance(parsed, dict) or "file" not in parsed or "append" not in parsed:
             raise ValueError(f"Unexpected LLM response: {result[:200]}")
-        existing = memory.read_file(parsed["file"]) or ""
-        attribution = f"\n*{source_label} · {ts}*"
-        new_snippet = parsed["append"].strip() + attribution
+        # If the caller specified a destination, use it — don't trust LLM routing
+        if body.dest_hint:
+            parsed["file"] = body.dest_hint
+        target_file = parsed["file"]
+        existing = memory.read_file(target_file) or ""
+        # Glossary is a structured table — no inline attribution (would break table rendering)
+        if target_file == "glossary.md":
+            new_snippet = parsed["append"].strip()
+        else:
+            new_snippet = parsed["append"].strip() + f"\n*{source_label} · {ts}*"
         full_content = (existing.rstrip() + "\n\n" + new_snippet + "\n") if existing else (new_snippet + "\n")
-        saved = memory.write_file(parsed["file"], full_content)
-        return {"saved": True, "file": parsed["file"], "size": saved["size"]}
+        saved = memory.write_file(target_file, full_content)
+        return {"saved": True, "file": target_file, "size": saved["size"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -377,8 +386,10 @@ async def suggest_memory(body: SuggestInput):
     """Scan transcript for new people/terms/facts not already in memory."""
     try:
         claude_md = prompts.truncate(memory.get_hot_cache(), 1500)
+        existing_files = "\n".join(f"- {f['path']}" for f in memory.list_files()) or "none"
         prompt = prompts.MEMORY_SUGGEST.format(
             claude_md=claude_md,
+            existing_files=existing_files,
             text=prompts.truncate(body.text, 8000),
         )
         result = await llm.chat(

@@ -8,28 +8,25 @@ CLAUDE_MD = MEMORY_DIR / "profile.md"
 GLOSSARY_MD = MEMORY_DIR / "glossary.md"
 
 # Templates for initialization
-CLAUDE_MD_TEMPLATE = """# Memory
+CLAUDE_MD_TEMPLATE = """# Profile
 
 ## Me
-[Your name], [Your role]. [What you do.]
+
+## Work Context
 
 ## People
 | Who | Role |
 |-----|------|
-> Full list: memory/glossary.md, profiles: memory/people/
-
-## Terms
-| Term | Meaning |
-|------|---------|
-> Full glossary: memory/glossary.md
+> Full profiles: memory/people/
 
 ## Projects
 | Name | What |
 |------|------|
 > Details: memory/projects/
 
-## Preferences
--
+## Personal
+
+## Preferences & Facts
 """
 
 GLOSSARY_TEMPLATE = """# Glossary
@@ -56,7 +53,7 @@ Workplace shorthand, acronyms, and internal language.
 
 def _ensure_structure():
     """Create memory directory structure if it doesn't exist."""
-    for d in [MEMORY_DIR, MEMORY_DIR / "people", MEMORY_DIR / "projects", MEMORY_DIR / "context"]:
+    for d in [MEMORY_DIR, MEMORY_DIR / "people", MEMORY_DIR / "projects"]:
         d.mkdir(parents=True, exist_ok=True)
     if not CLAUDE_MD.exists():
         CLAUDE_MD.write_text(CLAUDE_MD_TEMPLATE)
@@ -120,14 +117,3 @@ def get_glossary() -> str:
     return GLOSSARY_MD.read_text()
 
 
-def get_all_content() -> str:
-    """Read all memory files concatenated with file path labels.
-    Used for semantic search."""
-    _ensure_structure()
-    parts = []
-    for p in sorted(MEMORY_DIR.rglob("*.md")):
-        rel = p.relative_to(MEMORY_DIR)
-        content = p.read_text().strip()
-        if content:
-            parts.append(f"[file: {rel}]\n{content}")
-    return "\n\n---\n\n".join(parts)
