@@ -1,36 +1,53 @@
 # Review/Improve Loop — Usage Guide
 
-## What it does
+## How to use it
 
-Two agents you run inside a Claude Code session:
-
-- **`/review-agent`** — reviews your changed code against quality gates, writes findings to `review-findings.json`
-- **`/improve-agent`** — reads `review-findings.json`, plans fixes, applies them, runs tests
-
-Run them manually before pushing. The full autonomous loop (up to 3 iterations) is handled by `ralph-loop`.
+The review and improve agents are personas defined in `CLAUDE.md`. You invoke them
+by telling Claude Code what to do in plain English — not as slash commands.
 
 ---
 
-## Normal workflow
+## Step-by-step workflow
 
-**Quick review before pushing:**
-```
-/review-agent
-```
-Claude reviews the diff, scores six criteria, and writes `review-findings.json`.
-If everything scores 4+, you're good to push.
+### 1. Make your code change
+Edit any `.py` file or `static/index.html`.
 
-**If issues are found, fix them:**
+### 2. Stage the file
+```bash
+git add <filename>
 ```
-/improve-agent
-```
-Claude reads the findings, writes a plan, fixes the issues, runs tests, then signals it's ready for re-review.
 
-**Full autonomous loop (review → fix → review, up to 3 cycles):**
+### 3. Ask Claude to run the review agent
+In the Claude Code chat, type:
+
+> **"Run the review agent"**
+
+Claude will:
+- Run `git diff --name-only HEAD` to find changed files
+- Score each file against the 6 quality criteria
+- Write results to `review-findings.json`
+- Tell you if it passed or failed
+
+### 4. If it failed — ask Claude to run the improve agent
+In the Claude Code chat, type:
+
+> **"Run the improve agent"**
+
+Claude will:
+- Read `review-findings.json`
+- Write `improve-plan.md` before touching any code
+- Fix the flagged issues
+- Run `pytest tests/ -v` after each change
+- Clean up the temp files when done
+
+### 5. Review again if needed
+Repeat steps 3–4 until the review passes.
+
+### 6. Commit and push as normal
+```bash
+git commit -m "your message"
+git push
 ```
-/ralph-loop
-```
-Point it at `scripts/review_loop.sh` as its instructions. It will loop until everything passes or hits the iteration limit, then open a PR.
 
 ---
 
@@ -58,26 +75,21 @@ Created and deleted automatically — do not commit them.
 | `review-findings.json` | review-agent | Scores and blocking issues |
 | `improve-plan.md` | improve-agent | Plan written before any code is touched |
 | `review-status.json` | improve-agent | Signals fixes are done |
-| `review-blocked.md` | loop | Summary when max iterations hit without passing |
-
----
-
-## Calibration (first-time only)
-
-Before using on real code, run the calibration steps in `REVIEW_AGENT_SETUP.md` (steps 3 and 4) to verify the agents are scoring sensibly.
+| `review-blocked.md` | improve-agent | Summary if issues can't be resolved |
 
 ---
 
 ## Troubleshooting
 
-**Scores are all 5s and it passes immediately**
-The working tree may be clean — nothing to review. Run `git diff --name-only HEAD` to check.
+**"Only data/ files changed — nothing to review"**
+Stage a code file first: `git add main.py` (or whichever file you changed).
+
+**Scores are all 5s immediately**
+Either the change is genuinely clean, or the working tree was already clean before you staged.
+Run `git diff --name-only HEAD` to confirm what's in scope.
 
 **Improve agent edits code before writing improve-plan.md**
 Add `CRITICAL:` to the top of rule 2 in the `/improve-agent` section of `CLAUDE.md`.
 
-**Loop hits 3 iterations without passing**
-Read `review-blocked.md`. The remaining issue needs manual judgment — fix it, delete `review-blocked.md`, then run the loop again.
-
-**github plugin can't find the repo**
-Run `/github auth status` to check authentication.
+**Issues can't be resolved after 3 attempts**
+Claude will write `review-blocked.md` explaining what's stuck. Fix it manually, then run the review agent again.
