@@ -101,6 +101,7 @@ Rules:
 - New project info → file: projects/project-name.md, append: project name, description, status
 - Preference or fact about Dee/Darren → file: profile.md, append: "**Fact:** label — detail"
 - Keep the append value concise (1-4 lines). Do NOT include existing file content.
+- File paths are relative to the memory root. NEVER prefix with "memory/" — correct: "people/brett.md", wrong: "memory/people/brett.md"
 
 Return ONLY a JSON object — no markdown, no explanation:
 {{"file": "relative/path.md", "append": "...only the new content to add..."}}

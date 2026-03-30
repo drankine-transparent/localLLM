@@ -2163,15 +2163,16 @@
       if (!dirs[dir]) dirs[dir] = [];
       dirs[dir].push(f);
     });
-    const order = ['root', 'people', 'projects', 'context'];
-    const allDirs = [...new Set([...order, ...Object.keys(dirs)])];
+    const order = ['root', 'people', 'projects'];
+    const hiddenDirs = new Set(['exits', 'context']);
+    const allDirs = [...new Set([...order, ...Object.keys(dirs)])].filter(d => !hiddenDirs.has(d) && !d.includes('/'));
     let html = '';
     allDirs.forEach(dir => {
-      if (!dirs[dir]) return;
+      if (!dirs[dir] && !order.includes(dir)) return;
       const dirLabel = dir === 'root' ? 'Backgrounds' : dir.charAt(0).toUpperCase() + dir.slice(1);
       const icon = dirIcons[dir] || '';
       const isOpen = accOpen[dir] !== false;
-      const count = dirs[dir].length;
+      const count = (dirs[dir] || []).length;
       const chevron = `<svg class="acc-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       html += `<div class="acc-card${isOpen ? ' open' : ''}" id="acc-card-${dir}">
         <div class="acc-header" onclick="toggleAcc('${dir}')">
@@ -2183,7 +2184,7 @@
         </div>
         <div class="acc-content" id="acc-content-${dir}">
           <div class="acc-content-inner">`;
-      dirs[dir].forEach(f => {
+      (dirs[dir] || []).forEach(f => {
         const active = currentMemoryFile === f.path ? ' active' : '';
         const itemIcon = dirIcons[dir] || '';
         html += `<div class="memory-file-item${active}" onclick="openMemory('${esc(f.path)}')"
