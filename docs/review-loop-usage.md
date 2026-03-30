@@ -2,43 +2,41 @@
 
 ## What it does
 
-Runs a two-agent loop that reviews your changed code against quality gates,
-fixes any failures, and opens a GitHub PR when everything passes.
-Max 3 iterations before it stops and asks for human input.
+Two agents you run inside a Claude Code session:
+
+- **`/review-agent`** — reviews your changed code against quality gates, writes findings to `review-findings.json`
+- **`/improve-agent`** — reads `review-findings.json`, plans fixes, applies them, runs tests
+
+Run them manually before pushing. The full autonomous loop (up to 3 iterations) is handled by `ralph-loop`.
 
 ---
 
-## Running it manually
+## Normal workflow
 
-```bash
-bash scripts/review_loop.sh
+**Quick review before pushing:**
 ```
-
-Run this after making changes you want reviewed before pushing.
-
----
-
-## Automatic on push (pre-push hook is active)
-
-Every `git push` triggers the loop automatically. You don't need to do anything.
-
-If the push is blocked, you'll see:
+/review-agent
 ```
-ERROR: Review loop could not resolve all issues after 3 iterations.
-See review-blocked.md for details.
-```
+Claude reviews the diff, scores six criteria, and writes `review-findings.json`.
+If everything scores 4+, you're good to push.
 
-To bypass (use with caution):
-```bash
-rm -f review-blocked.md
-git push
+**If issues are found, fix them:**
 ```
+/improve-agent
+```
+Claude reads the findings, writes a plan, fixes the issues, runs tests, then signals it's ready for re-review.
+
+**Full autonomous loop (review → fix → review, up to 3 cycles):**
+```
+/ralph-loop
+```
+Point it at `scripts/review_loop.sh` as its instructions. It will loop until everything passes or hits the iteration limit, then open a PR.
 
 ---
 
 ## Quality gates
 
-The review agent scores six criteria. Everything must score 4 or above to pass.
+All six criteria must score 4 or above to pass.
 
 | Criterion | What it checks |
 |-----------|----------------|
@@ -53,49 +51,33 @@ The review agent scores six criteria. Everything must score 4 or above to pass.
 
 ## Runtime files
 
-These are created and deleted automatically during the loop. Don't commit them.
+Created and deleted automatically — do not commit them.
 
-| File | Created by | When |
-|------|-----------|------|
-| `review-findings.json` | review-agent | After each review cycle |
-| `improve-plan.md` | improve-agent | Before any code is touched |
-| `review-status.json` | improve-agent | After fixes are applied |
-| `review-blocked.md` | loop | When max iterations hit without passing |
-
----
-
-## Running agents individually
-
-You can run either agent on its own outside the loop:
-
-**Review only** (writes `review-findings.json`):
-```
-/review-agent
-```
-
-**Improve only** (reads existing `review-findings.json`):
-```
-/improve-agent
-```
+| File | Created by | Purpose |
+|------|-----------|---------|
+| `review-findings.json` | review-agent | Scores and blocking issues |
+| `improve-plan.md` | improve-agent | Plan written before any code is touched |
+| `review-status.json` | improve-agent | Signals fixes are done |
+| `review-blocked.md` | loop | Summary when max iterations hit without passing |
 
 ---
 
-## Calibration (first-time setup only)
+## Calibration (first-time only)
 
-Before using the loop on real code, calibrate both agents. See `REVIEW_AGENT_SETUP.md` steps 3 and 4.
+Before using on real code, run the calibration steps in `REVIEW_AGENT_SETUP.md` (steps 3 and 4) to verify the agents are scoring sensibly.
 
 ---
 
 ## Troubleshooting
 
-**Scores are all 5s (nothing fails)**
-The working tree may be clean. Run `git diff --name-only HEAD` — if it returns nothing, there's nothing to review.
+**Scores are all 5s and it passes immediately**
+The working tree may be clean — nothing to review. Run `git diff --name-only HEAD` to check.
 
-**Improve agent touches code before writing improve-plan.md**
-Update the `/improve-agent` section in `CLAUDE.md` — add `CRITICAL:` to the top of the plan-first rule.
+**Improve agent edits code before writing improve-plan.md**
+Add `CRITICAL:` to the top of rule 2 in the `/improve-agent` section of `CLAUDE.md`.
 
 **Loop hits 3 iterations without passing**
-Read `review-blocked.md`. The issue needs manual judgment. Fix it, delete `review-blocked.md`, then push again.
+Read `review-blocked.md`. The remaining issue needs manual judgment — fix it, delete `review-blocked.md`, then run the loop again.
 
 **github plugin can't find the repo**
 Run `/github auth status` to check authentication.
