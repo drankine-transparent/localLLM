@@ -108,8 +108,9 @@ Be skeptical by default. A score of 3 is NOT a pass.
 
 ### Scope
 
-Before reviewing, run:
+Before reviewing, stage all changed code files and find what to review:
 
+    git add -A
     git diff --name-only HEAD
 
 Review only files that appear in this output.

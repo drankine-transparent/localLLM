@@ -9,16 +9,11 @@ by telling Claude Code what to do in plain English — not as slash commands.
 
 ## Step-by-step workflow
 
-### 1. Make your code change
-Edit any `.py` file or `static/index.html`.
+### 1. Ask Claude to make changes
+Tell Claude what you want built or fixed. Claude will edit whatever files are needed.
 
-### 2. Stage the file
-```bash
-git add <filename>
-```
-
-### 3. Ask Claude to run the review agent
-In the Claude Code chat, type:
+### 2. Ask Claude to run the review agent
+Once Claude is done with the changes, type:
 
 > **"Run the review agent"**
 
