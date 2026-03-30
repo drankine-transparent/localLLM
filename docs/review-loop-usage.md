@@ -13,36 +13,29 @@ by telling Claude Code what to do in plain English — not as slash commands.
 Tell Claude what you want built or fixed. Claude will edit whatever files are needed.
 
 ### 2. Ask Claude to run the review agent
-Once Claude is done with the changes, type:
 
 > **"Run the review agent"**
 
-Claude will:
-- Run `git diff --name-only HEAD` to find changed files
-- Score each file against the 6 quality criteria
-- Write results to `review-findings.json`
-- Tell you if it passed or failed
+Claude will stage all changes, score them against the 6 criteria, and write `review-findings.json`.
 
-### 4. If it failed — ask Claude to run the improve agent
-In the Claude Code chat, type:
+### 3. If it failed — ask Claude to run the improve agent
 
 > **"Run the improve agent"**
 
-Claude will:
-- Read `review-findings.json`
-- Write `improve-plan.md` before touching any code
-- Fix the flagged issues
-- Run `pytest tests/ -v` after each change
-- Clean up the temp files when done
+Claude will read the findings, write a fix plan, apply fixes, and run tests.
 
-### 5. Review again if needed
-Repeat steps 3–4 until the review passes.
+### 4. Repeat until it passes
+Ask Claude to run the review agent again. Repeat steps 2–3 until pass=true.
 
-### 6. Commit and push as normal
-```bash
-git commit -m "your message"
-git push
-```
+### 5. Ask Claude to update git
+
+> **"Update git"**
+
+Claude will commit everything with an appropriate message.
+
+### 6. Push
+
+> **"Push"** or **"git push"**
 
 ---
 
