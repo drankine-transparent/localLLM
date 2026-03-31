@@ -1,12 +1,8 @@
 # Profile
 
 ## Me
-Dee Rankine (Darren), CTO at Transparent Partners. Marketing technology consultancy building agentic AI solutions.
 
 ## Work Context
-- Role: CTO, Transparent Partners
-- Focus: Agentic AI solutions for marketing technology clients
-- Stack: GCP, FastAPI, ADK agents, Firestore, Firebase, Vertex AI
 
 ## People
 | Who | Role |
@@ -19,7 +15,9 @@ Dee Rankine (Darren), CTO at Transparent Partners. Marketing technology consulta
 > Details: memory/projects/
 
 ## Personal
-- Two sons, aged 11 and 15, involved in mountain biking
-- Enjoys diving (Belize trip mentioned)
 
 ## Preferences & Facts
+- Dan's Enneagram: identified as an enthusiast, achiever, and challenger.
+- Oliver's Promotion: Oliver is receiving a promotion and a corresponding compensation change.
+- Mid-Year Salary Review: Chris and Brian's salary increases are suggested to be reviewed mid-year.
+- Darren's focus: Darren is focused on building out the MCP server and improving documentation processes.

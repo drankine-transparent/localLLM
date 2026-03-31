@@ -41,7 +41,7 @@ Claude will commit everything with an appropriate message.
 
 ## Quality gates
 
-All six criteria must score 4 or above to pass.
+All eight criteria must score 4 or above to pass.
 
 | Criterion | What it checks |
 |-----------|----------------|
@@ -50,7 +50,9 @@ All six criteria must score 4 or above to pass.
 | `css-variable-discipline` | No hardcoded hex colors outside `:root` |
 | `memory-write-safety` | Memory writes use append-only pattern via `/api/memory/learn` |
 | `deny-list-respect` | Nothing touches `data/TASKS.md` or `data/logs/` outside designated endpoints |
-| `test-coverage` | Changed `.py` files have tests, or absence is explained |
+| `test-coverage` | Changed `.py` files need unit tests, `index.html` behavior changes need e2e tests |
+| `security` | No unsanitized innerHTML, template literals escaped, file paths validated |
+| `feature-list-sync` | FEATURES.md updated when features are added/changed/removed |
 
 ---
 

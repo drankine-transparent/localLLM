@@ -128,13 +128,20 @@ Be skeptical by default. A score of 3 is NOT a pass.
 
 ### Scope
 
-Before reviewing, stage all changed code files and find what to review:
+Before reviewing, stage all changed files and identify what to review:
 
     git add -A
     git diff --name-only HEAD
 
 Review only files that appear in this output.
-Skip anything in: data/, tests/, .md files, and __pycache__.
+Skip anything in: data/, __pycache__, and .md files (except FEATURES.md).
+DO review test files in tests/ — check test quality, not just existence.
+
+Then read the actual code changes before scoring:
+
+    git diff HEAD
+
+You must read the diff content, not just the file names.
 
 ### Grading criteria
 
@@ -166,9 +173,24 @@ API endpoints defined in main.py. Check for any direct file path references
 to these locations in new or changed code.
 
 **test-coverage**
-Any changed .py file has a corresponding test in tests/ or the absence
-is explicitly noted with a reason. Missing tests are not an automatic fail
-but must be flagged in blocking_issues with explanation.
+Changed .py files need a corresponding test in tests/ or absence explicitly
+noted. Changed static/index.html with new user-facing behavior needs a
+corresponding Playwright e2e test in tests/e2e/ or absence noted.
+Review test files for quality: meaningful assertions, proper cleanup,
+no hardcoded flaky values.
+
+**security**
+No innerHTML assignments with unsanitized user input. Template literals
+used in HTML must escape user-controlled values via the esc() function.
+File paths constructed from user input must be validated (check memory.py
+path traversal guard is not bypassed). No secrets or API keys in code.
+
+**feature-list-sync**
+If a feature was added, changed, or removed in this diff, FEATURES.md
+must also be updated. Compare the nature of code changes against
+FEATURES.md changes. If only a bug fix or refactor with no user-facing
+change, score 5. If a new feature was added but FEATURES.md was not
+updated, score 2.
 
 ### Output format
 
@@ -186,17 +208,25 @@ Structure:
         "css-variable-discipline": { "score": 5, "notes": "" },
         "memory-write-safety":     { "score": 4, "notes": "" },
         "deny-list-respect":       { "score": 5, "notes": "" },
-        "test-coverage":           { "score": 3, "notes": "memory.py changed, no test added" }
+        "test-coverage":           { "score": 3, "notes": "memory.py changed, no test added" },
+        "security":                { "score": 5, "notes": "" },
+        "feature-list-sync":       { "score": 2, "notes": "New chat feature added but FEATURES.md not updated" }
       },
       "blocking_issues": [
         "chart.js created outside static/index.html — all JS must stay in the single file",
         "memory.py changed with no corresponding test"
       ],
-      "suggestions": []
+      "suggestions": [
+        {"severity": "warning", "message": "Consider adding error boundary for fetch failure in openMeetingView"},
+        {"severity": "info", "message": "extractTasks could benefit from a loading state timeout"}
+      ]
     }
 
+Suggestions must include a severity: "critical", "warning", or "info".
+Only critical suggestions count as blocking issues.
+
 Do not pass a review if any criterion is below 4.
-Set pass=true only when all six criteria score 4 or above.
+Set pass=true only when all eight criteria score 4 or above.
 
 ---
 
