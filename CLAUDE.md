@@ -35,10 +35,8 @@ Single-page app — all frontend in one file, served by FastAPI.
 data/memory/
   profile.md          ← hot cache: Dee's personal context loaded into LLM prompts
   glossary.md         ← acronyms, terms, project codenames
-  people/             ← active staff, contractors, board (gitignored — contains PII)
-  exits/              ← alumni / former staff (gitignored — contains PII)
+  people/             ← staff profiles (gitignored — contains PII)
   projects/           ← project context files
-  context/            ← general context files
 ```
 
 ---
@@ -55,9 +53,7 @@ Task cards support **drag-and-drop** between columns (no "Move to…" dropdown).
 The **Memory** panel shows an accordion tree:
 - Root files → "Backgrounds"
 - `people/` → "People"
-- `exits/` → "Exits"
 - `projects/` → "Projects"
-- `context/` → "Context"
 
 Default view on file open is **Preview** (rendered markdown). Switch to Edit mode to modify.
 
@@ -116,7 +112,7 @@ Default view on file open is **Preview** (rendered markdown). Switch to Edit mod
 - Do not edit `data/TASKS.md` or `data/logs/` directly — they are app-owned and deny-listed
 - Do not add separate `.css` or `.js` files — keep everything in `static/index.html`
 - Do not hardcode hex colors — use CSS variables from `:root`
-- Do not commit `data/memory/people/` or `data/memory/exits/` — they contain PII (home addresses, personal phone numbers)
+- Do not commit `data/memory/people/` — contains PII (personal phone numbers, addresses)
 
 ---
 

@@ -8,6 +8,7 @@ Detailed inventory of everything in the app. Updated whenever features are added
 
 - **Transcript import** — Paste text or upload .txt/.md/.pdf files via drag-and-drop
 - **LLM extraction** — Extracts action items from meeting transcripts with owner detection
+- **Meeting name detection** — Derives meeting name from YAML frontmatter, filename, participants, or topic; never uses placeholder text
 - **Owner routing** — Darren/Dee tasks go to Active; others go to Waiting On with `Person:` prefix badge
 - **Meeting tagging** — Every task context ends with `` `Meeting Name · YYYY-MM-DD` ``
 - **Chunked processing** — Long transcripts split into ~8K char chunks, processed sequentially
@@ -36,8 +37,8 @@ Detailed inventory of everything in the app. Updated whenever features are added
 - **Append-only writes** — Server controls file writes; LLM only generates the snippet to append
 - **Section-aware append** — Profile facts insert under `## Preferences & Facts`; glossary rows insert inside the correct table after the separator
 - **Profile structure protection** — If profile.md loses section headers, server rebuilds from template before inserting
-- **Glossary column matching** — LLM output trimmed to match table column count; date embedded in last cell
-- **Source attribution** — Server stamps every memory entry with source and UTC timestamp
+- **Glossary fast path** — Glossary entries from suggestion cards bypass the LLM entirely; row built server-side with correct column count, inserted into Internal Terms section
+- **Source attribution** — Server stamps every memory entry with source and UTC timestamp; LLM-echoed attribution stripped to prevent duplicates
 - **Duplicate prevention** — Existing file list passed to LLM in suggest and learn prompts to avoid re-creating files
 - **Reset Memory** — Resets profile.md and glossary.md to empty templates, deletes all people/ and projects/ files (confirmation required)
 
