@@ -522,3 +522,63 @@ def test_profile_structure_rebuilt_when_lost(dev_server):
 
     # Restore original
     _api(dev_server, "post", "/api/memory", json={"path": "profile.md", "content": original})
+
+
+# --- Reset / Clear tests ---
+
+def test_clear_board(page, dev_server):
+    """Clear Board deletes all tasks and logs."""
+    # Seed a task
+    _api(dev_server, "post", "/api/tasks", json={"title": "Clear test task", "section": "active"})
+
+    page.goto("/")
+    page.locator(".nav-label", has_text="Tasks").click()
+    page.locator("#board").wait_for(state="visible")
+    page.locator("#cards-active .task-card").first.wait_for(state="visible", timeout=5000)
+
+    # Click Clear Board and accept confirmation
+    page.on("dialog", lambda d: d.accept())
+    page.locator("text=Clear Board").click()
+    page.wait_for_timeout(1000)
+
+    # Board should be empty
+    assert page.locator("#cards-active .task-card").count() == 0
+
+    # Logs should also be empty
+    logs = _api(dev_server, "get", "/api/logs").json()
+    assert len(logs) == 0
+
+
+def test_reset_memory(page, dev_server):
+    """Reset Memory clears people/projects and resets templates."""
+    # Seed a test person file
+    _api(dev_server, "post", "/api/memory", json={
+        "path": "people/reset-test.md",
+        "content": "# Reset Test Person\n",
+    })
+
+    page.goto("/")
+    page.locator(".nav-label", has_text="Memory").click()
+    page.locator("#memoryTree").wait_for(state="visible")
+    page.locator(".memory-file-item", has_text="reset-test").wait_for(state="attached", timeout=5000)
+
+    # Click Reset Memory and accept confirmation
+    page.on("dialog", lambda d: d.accept())
+    page.locator("text=Reset Memory").click()
+    page.wait_for_timeout(1000)
+
+    # People file should be gone
+    r = _api(dev_server, "get", "/api/memory/people/reset-test.md")
+    assert r.status_code == 404
+
+    # Profile should have template structure
+    r = _api(dev_server, "get", "/api/memory/profile.md")
+    content = r.json()["content"]
+    assert "## Preferences & Facts" in content
+    assert "## Me" in content
+
+    # Glossary should have template structure
+    r = _api(dev_server, "get", "/api/memory/glossary.md")
+    content = r.json()["content"]
+    assert "## Acronyms" in content
+    assert "## Project Codenames" in content

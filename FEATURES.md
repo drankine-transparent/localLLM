@@ -93,7 +93,7 @@ Detailed inventory of everything in the app. Updated whenever features are added
 | `test_status_includes_current_chunk_field` | Extract status includes current_chunk when running |
 | `test_status_current_chunk_none_when_idle` | Extract status current_chunk is null when idle |
 
-### E2E Playwright tests (17) — `tests/e2e/`
+### E2E Playwright tests (19) — `tests/e2e/`
 
 **Smoke tests** (`test_ui.py`):
 | Test | What it covers |
@@ -119,10 +119,12 @@ Detailed inventory of everything in the app. Updated whenever features are added
 | `test_memory_learn_adds_attribution` | Attribution (source + date) visible in memory file preview |
 | `test_memory_learn_api_adds_attribution` | Learn endpoint adds attribution via API (LLM-dependent, skips if unavailable) |
 | `test_profile_structure_rebuilt_when_lost` | Learn endpoint rebuilds profile.md template when structure is lost (LLM-dependent) |
+| `test_clear_board` | Clear Board button deletes all tasks and logs |
+| `test_reset_memory` | Reset Memory button clears people/projects, resets profile + glossary templates |
 
 ### Running tests
 ```bash
-pytest tests/ -v              # all 24 tests
+pytest tests/ -v              # all 26 tests
 pytest tests/test_streaming.py -v   # unit tests only (no server needed)
 pytest tests/e2e/ -v          # e2e tests only (needs server on port 8000)
 ```
