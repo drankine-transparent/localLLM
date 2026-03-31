@@ -87,6 +87,17 @@ Default view on file open is **Preview** (rendered markdown). Switch to Edit mod
 - Tests mock the OpenAI client — no LM Studio needed
 - Run `pytest tests/ -v` before declaring any work complete
 
+## E2E tests
+
+- `tests/e2e/` — Playwright tests against a live server at localhost:8000
+- The `dev_server` fixture starts/stops uvicorn automatically
+- If uvicorn is already running on port 8000, the fixture detects it and reuses it rather than starting a second process
+- LLM-dependent endpoints (extract, suggest, learn) are mocked at the browser level via `page.route()`. Data verification tests seed via direct API calls.
+- `tests/conftest.py` enforces test ordering: unit tests run before e2e tests to avoid Playwright/asyncio event loop conflicts on Python 3.14
+- Run unit tests only: `pytest tests/test_streaming.py -v`
+- Run e2e tests only: `pytest tests/e2e/ -v`
+- Run everything: `pytest tests/ -v`
+
 ---
 
 ## What NOT to do
