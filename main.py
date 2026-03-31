@@ -369,13 +369,29 @@ async def learn_memory(body: LearnInput):
             parsed["file"] = body.dest_hint
         target_file = parsed["file"]
         existing = memory.read_file(target_file) or ""
-        # Glossary is a structured table — no inline attribution (would break table rendering)
-        if target_file == "glossary.md":
-            new_snippet = parsed["append"].strip()
+        snippet = parsed["append"].strip()
+        attribution = f"*{source_label} · {ts}*"
+
+        # Build snippet with attribution
+        if target_file == "glossary.md" and "|" in snippet:
+            # Glossary table row: embed attribution in last cell
+            if snippet.rstrip().endswith("|"):
+                trimmed = snippet.rstrip()[:-1].rstrip()
+                new_snippet = f"{trimmed} · {source_label} {ts} |"
+            else:
+                new_snippet = snippet + f"\n{attribution}"
         else:
-            new_snippet = parsed["append"].strip() + f"\n*{source_label} · {ts}*"
-        # Profile.md: insert under ## Preferences & Facts to preserve section structure
-        if target_file == "profile.md" and "## Preferences & Facts" in existing:
+            # All other files: attribution on its own line
+            new_snippet = snippet + f"\n{attribution}"
+
+        print(f"[LEARN] file={target_file} snippet_len={len(snippet)} attribution={attribution}")
+
+        # Profile.md: always insert under ## Preferences & Facts
+        if target_file == "profile.md":
+            if "## Preferences & Facts" not in existing:
+                # Structure lost — rebuild from template then append
+                existing = memory.CLAUDE_MD_TEMPLATE.strip()
+                print(f"[LEARN] profile.md structure lost — rebuilt from template")
             section_header = "## Preferences & Facts"
             idx = existing.index(section_header) + len(section_header)
             rest = existing[idx:]

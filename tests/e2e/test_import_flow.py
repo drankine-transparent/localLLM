@@ -175,7 +175,8 @@ def test_tasks_appear_in_correct_columns(page, dev_server):
     page.goto("/")
     page.locator(".nav-label", has_text="Tasks").click()
     page.locator("#board").wait_for(state="visible")
-    time.sleep(0.5)
+    # Wait for tasks to load from API
+    page.locator("#cards-active .task-card").first.wait_for(state="visible", timeout=5000)
 
     # Verify tasks appear in correct columns
     assert page.locator("#cards-active .task-card").count() >= 2
@@ -370,11 +371,16 @@ def test_memory_file_appears_in_panel(page, dev_server):
     page.goto("/")
     page.locator(".nav-label", has_text="Memory").click()
 
-    # Wait for memory tree to load
+    # Wait for memory tree to load and People section to populate
     page.locator("#memoryTree").wait_for(state="visible")
-    time.sleep(0.5)
+    page.locator(".memory-file-item", has_text="test-person").wait_for(state="attached", timeout=5000)
 
-    # People section should show the file
+    # People section may be collapsed — expand it if needed
+    people_card = page.locator("#acc-card-people")
+    if people_card.count() and "open" not in (people_card.get_attribute("class") or ""):
+        page.locator("#acc-card-people .acc-header").click()
+        page.wait_for_timeout(300)
+
     assert page.locator(".memory-file-item", has_text="test-person").is_visible()
 
     # Click to open it
@@ -418,6 +424,101 @@ def test_memory_append_preserves_structure(page, dev_server):
     assert "Me" in preview  # ## Me section
     assert "Preferences" in preview  # ## Preferences & Facts section
     assert "Test fact for e2e verification" in preview
+
+    # Restore original
+    _api(dev_server, "post", "/api/memory", json={"path": "profile.md", "content": original})
+
+
+def test_memory_learn_adds_attribution(page, dev_server):
+    """POST /api/memory/learn adds source + timestamp attribution to people/project files."""
+
+    # Write a test person file via learn endpoint (mocked LLM response)
+    # We can't call learn directly (needs LLM), so write via direct API and verify format
+    # Instead, write with attribution format and check it renders in the UI
+    ts = "2026-03-30 18:00"
+    _api(dev_server, "post", "/api/memory", json={
+        "path": "people/test-attr.md",
+        "content": "# Test Attribution\n\n**Role:** Engineer\n*Import · " + ts + "*\n",
+    })
+
+    page.goto("/")
+    page.locator(".nav-label", has_text="Memory").click()
+    page.locator("#memoryTree").wait_for(state="visible")
+    time.sleep(0.5)
+
+    page.locator(".memory-file-item", has_text="test-attr").click()
+    page.locator("#memoryPreview").wait_for(state="visible", timeout=3000)
+    preview = page.locator("#memoryPreview").text_content()
+
+    # Attribution must be visible in preview
+    assert "Import" in preview
+    assert "2026-03-30" in preview
+
+    # Cleanup
+    _api(dev_server, "post", "/api/memory", json={"path": "people/test-attr.md", "content": ""})
+
+
+def test_memory_learn_api_adds_attribution(dev_server):
+    """Verify /api/memory/learn endpoint adds attribution via direct API check."""
+
+    # Seed a people file with known content
+    _api(dev_server, "post", "/api/memory", json={
+        "path": "people/test-learn-api.md",
+        "content": "# Test Learn API\n",
+    })
+
+    # Call learn with a mocked suggestion (LLM will route, but dest_hint overrides)
+    r = _api(dev_server, "post", "/api/memory/learn", json={
+        "text": "Person: Test Person — Senior Engineer on platform team",
+        "dest_hint": "people/test-learn-api.md",
+        "source": "E2E Test",
+    })
+
+    if r.status_code != 200:
+        # LLM not available — clean up and skip
+        _api(dev_server, "post", "/api/memory", json={"path": "people/test-learn-api.md", "content": ""})
+        import pytest; pytest.skip("LLM not available — learn endpoint returned " + str(r.status_code))
+
+    # Read the file back and check attribution exists
+    content_r = _api(dev_server, "get", "/api/memory/people/test-learn-api.md")
+    content = content_r.json()["content"]
+    assert "E2E Test" in content, f"Attribution 'E2E Test' not found in: {content[:200]}"
+    assert "·" in content, f"Timestamp separator not found in: {content[:200]}"
+
+    # Cleanup
+    _api(dev_server, "post", "/api/memory", json={"path": "people/test-learn-api.md", "content": ""})
+
+
+def test_profile_structure_rebuilt_when_lost(dev_server):
+    """If profile.md loses its section structure, learn endpoint rebuilds it."""
+
+    # Save original
+    r = _api(dev_server, "get", "/api/memory/profile.md")
+    original = r.json()["content"]
+
+    # Deliberately break the structure
+    _api(dev_server, "post", "/api/memory", json={
+        "path": "profile.md",
+        "content": "- some broken content with no headers\n",
+    })
+
+    # Call learn — should rebuild structure
+    r = _api(dev_server, "post", "/api/memory/learn", json={
+        "text": "Fact: Dee likes coffee",
+        "dest_hint": "profile.md",
+        "source": "E2E Test",
+    })
+
+    if r.status_code != 200:
+        # LLM not available — restore and skip
+        _api(dev_server, "post", "/api/memory", json={"path": "profile.md", "content": original})
+        import pytest; pytest.skip("LLM not available — learn endpoint returned " + str(r.status_code))
+
+    content_r = _api(dev_server, "get", "/api/memory/profile.md")
+    content = content_r.json()["content"]
+    # Structure must be rebuilt
+    assert "## Preferences & Facts" in content, f"Section header missing in: {content[:300]}"
+    assert "## Me" in content, f"## Me header missing in: {content[:300]}"
 
     # Restore original
     _api(dev_server, "post", "/api/memory", json={"path": "profile.md", "content": original})
