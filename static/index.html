@@ -1085,12 +1085,9 @@
     .mv-back-btn:hover { background: var(--bg-hover); }
     .mv-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0; }
     .mv-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
-    .mv-section-label {
-      font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
-      text-transform: uppercase; color: var(--text-muted);
-      margin: 16px 0 6px;
-    }
-    .mv-section-label:first-child { margin-top: 4px; }
+    .mv-body .acc-card { margin-bottom: 10px; }
+    .mv-body .acc-card:last-child { margin-bottom: 0; }
+    .mv-body .acc-content-inner { padding: 4px 8px; }
     .mv-task-row {
       display: flex; align-items: flex-start; gap: 8px;
       padding: 8px 0; border-bottom: 1px solid var(--border-light);
@@ -2668,10 +2665,10 @@
   // ══════════════════════════════════════════════════════
 
   const MV_SECTIONS = [
-    {id:'active', label:'Active'},
-    {id:'waiting', label:'Waiting On'},
-    {id:'someday', label:'Someday'},
-    {id:'done', label:'Done'},
+    {id:'active', label:'Active', icon:`<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8.5l2 2 3.5-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`},
+    {id:'waiting', label:'Waiting On', icon:`<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3.5l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`},
+    {id:'someday', label:'Someday', icon:`<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M12 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V3a1 1 0 00-1-1zM6 1v2M10 1v2M3 6h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`},
+    {id:'done', label:'Done', icon:`<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.5 3.5L13 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`},
   ];
 
   async function openMeetingView(meetingName, taskIds) {
@@ -2687,13 +2684,22 @@
       let totalFound = 0;
       let html = '';
 
+      const chevron = `<svg class="acc-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       for (const sec of MV_SECTIONS) {
         const tasks = (sections[sec.id] || []).filter(t =>
           idSet.size > 0 ? idSet.has(t.id) : t.context?.includes(`\`${meetingName}\``)
         );
         if (!tasks.length) continue;
         totalFound += tasks.length;
-        html += `<div class="mv-section-label">${esc(sec.label)}</div>`;
+        html += `<div class="acc-card open" id="mv-acc-${sec.id}">
+          <div class="acc-header" onclick="toggleMvSection('${sec.id}')">
+            <span class="acc-icon">${sec.icon}</span>
+            <span class="acc-title">${esc(sec.label)}</span>
+            <span class="acc-count">${tasks.length}</span>
+            ${chevron}
+          </div>
+          <div class="acc-content">
+            <div class="acc-content-inner">`;
         for (const t of tasks) {
           const doneClass = t.done ? ' done' : '';
           const ctx = (t.context || '').replace(/`[^`]+`/, '').trim();
@@ -2705,6 +2711,7 @@
             </div>
           </div>`;
         }
+        html += `</div></div></div>`;
       }
 
       if (!totalFound) {
@@ -2719,6 +2726,11 @@
 
   function closeMeetingView() {
     document.getElementById('meetingView').style.display = 'none';
+  }
+
+  function toggleMvSection(id) {
+    const card = document.getElementById('mv-acc-' + id);
+    if (card) card.classList.toggle('open');
   }
 
   // ── Init ──────────────────────────────────────────────

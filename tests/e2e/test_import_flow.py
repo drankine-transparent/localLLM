@@ -273,19 +273,86 @@ def test_log_click_opens_meeting_view(page, dev_server):
     # Verify title
     assert "Meeting View Test" in page.locator("#mvTitle").text_content()
 
+    # Verify sections render as accordion cards (not plain labels)
+    acc_cards = page.locator("#meetingView .acc-card")
+    assert acc_cards.count() >= 2  # Active + Waiting On at minimum
+
+    # Verify section titles are in acc-title elements
+    assert page.locator("#meetingView .acc-title", has_text="Active").is_visible()
+    assert page.locator("#meetingView .acc-title", has_text="Waiting On").is_visible()
+
+    # Verify count badges show correct numbers
+    active_count = page.locator("#mv-acc-active .acc-count").text_content()
+    assert active_count == "2"
+    waiting_count = page.locator("#mv-acc-waiting .acc-count").text_content()
+    assert waiting_count == "1"
+
     # Verify tasks appear in meeting view
     task_rows = page.locator(".mv-task-row")
     assert task_rows.count() >= 3
 
     # Verify task titles
     assert page.locator(".mv-task-title", has_text="Review Q2 roadmap").is_visible()
-    assert page.locator(".mv-task-title", has_text="Alice: Send updated deck").is_visible()
+    assert page.locator(".mv-task-title", has_text="Send updated deck").first.is_visible()
 
     # Close meeting view
     page.locator(".mv-back-btn").click()
     assert not page.locator("#meetingView").is_visible()
 
     # Cleanup
+    _cleanup_tasks(dev_server)
+
+
+def test_meeting_view_section_collapse(page, dev_server):
+    """Meeting view accordion sections can collapse and expand."""
+    _cleanup_tasks(dev_server)
+
+    created_ids = []
+    for t in FAKE_TASKS:
+        r = _api(dev_server, "post", "/api/tasks", json={
+            "title": t["title"], "section": t["section"], "context": t["context"],
+        })
+        created_ids.append(r.json()["id"])
+
+    from pathlib import Path
+    log_path = Path(__file__).parent.parent.parent / "data" / "logs" / "extract_log.jsonl"
+    log_entry = {
+        "timestamp": "2026-03-30T17:00:00",
+        "model": "test-model",
+        "duration_seconds": 2.0,
+        "prompt_tokens": 50, "completion_tokens": 100, "total_tokens": 150,
+        "chunks": 1, "action_items": 3, "input_chars": 300,
+        "filename": "collapse-test.md",
+        "meeting_name": "Collapse Test · 2026-03-30",
+        "task_ids": created_ids,
+    }
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(log_entry) + "\n")
+
+    page.goto("/")
+    page.locator(".nav-label", has_text="Logs").click()
+    page.locator("#logsContainer").wait_for(state="visible")
+    time.sleep(0.5)
+
+    page.locator("text=Collapse Test").first.click()
+    page.locator("#meetingView").wait_for(state="visible", timeout=5000)
+
+    # Active section should start open
+    active_card = page.locator("#mv-acc-active")
+    assert "open" in active_card.get_attribute("class")
+
+    # Click header to collapse
+    page.locator("#mv-acc-active .acc-header").click()
+    assert "open" not in active_card.get_attribute("class")
+
+    # Click again to expand
+    page.locator("#mv-acc-active .acc-header").click()
+    assert "open" in active_card.get_attribute("class")
+
+    # Tasks visible again after expand
+    assert page.locator("#mv-acc-active .mv-task-row").count() >= 2
+
+    page.locator(".mv-back-btn").click()
     _cleanup_tasks(dev_server)
 
 

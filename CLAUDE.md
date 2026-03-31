@@ -100,6 +100,15 @@ Default view on file open is **Preview** (rendered markdown). Switch to Edit mod
 
 ---
 
+## Feature list
+
+- `FEATURES.md` is the single source of truth for what the app does
+- When adding a feature: add it to the relevant section in `FEATURES.md`
+- When removing a feature: move it to the "Removed Features" section with a brief note
+- When adding or modifying tests: update the "Quality & Testing" section with the new test name and what it covers
+
+---
+
 ## What NOT to do
 
 - Always activate venv first — system Python on this machine is 3.14
