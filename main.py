@@ -341,6 +341,35 @@ async def write_memory(body: MemoryWrite):
 
 
 
+def _insert_under_section(content: str, section_header: str, snippet: str) -> str:
+    """Insert snippet under a ## section header, before the next ## or at EOF."""
+    idx = content.index(section_header) + len(section_header)
+    rest = content[idx:]
+    next_section = rest.find("\n## ")
+    if next_section >= 0:
+        insert_at = idx + next_section
+        return content[:insert_at].rstrip() + "\n" + snippet + "\n" + content[insert_at:]
+    return content.rstrip() + "\n" + snippet + "\n"
+
+
+def _insert_glossary_row(content: str, row: str) -> str:
+    """Insert a table row into the last table section of the glossary.
+
+    Finds the last line that starts with | and inserts after it.
+    This keeps rows inside their table instead of appending at EOF.
+    """
+    lines = content.split("\n")
+    last_table_line = -1
+    for i, line in enumerate(lines):
+        if line.strip().startswith("|") and not line.strip().startswith("|--"):
+            last_table_line = i
+    if last_table_line >= 0:
+        lines.insert(last_table_line + 1, row)
+        return "\n".join(lines)
+    # Fallback: append at end
+    return content.rstrip() + "\n" + row + "\n"
+
+
 @app.post("/api/memory/learn")
 async def learn_memory(body: LearnInput):
     try:
@@ -389,18 +418,12 @@ async def learn_memory(body: LearnInput):
         # Profile.md: always insert under ## Preferences & Facts
         if target_file == "profile.md":
             if "## Preferences & Facts" not in existing:
-                # Structure lost — rebuild from template then append
                 existing = memory.CLAUDE_MD_TEMPLATE.strip()
                 print(f"[LEARN] profile.md structure lost — rebuilt from template")
-            section_header = "## Preferences & Facts"
-            idx = existing.index(section_header) + len(section_header)
-            rest = existing[idx:]
-            next_section = rest.find("\n## ")
-            if next_section >= 0:
-                insert_at = idx + next_section
-                full_content = existing[:insert_at].rstrip() + "\n" + new_snippet + "\n" + existing[insert_at:]
-            else:
-                full_content = existing.rstrip() + "\n" + new_snippet + "\n"
+            full_content = _insert_under_section(existing, "## Preferences & Facts", new_snippet)
+        elif target_file == "glossary.md" and "|" in new_snippet:
+            # Glossary table row: find the last table row in the right section and insert after it
+            full_content = _insert_glossary_row(existing, new_snippet)
         else:
             full_content = (existing.rstrip() + "\n\n" + new_snippet + "\n") if existing else (new_snippet + "\n")
         saved = memory.write_file(target_file, full_content)

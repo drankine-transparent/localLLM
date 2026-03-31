@@ -1,3 +1,4 @@
-Project: crawler and extractor projects
+# Crawler and Extractor Projects
 
-Focus: Aligning project priorities and communication strategies.
+## Overview
+Daniel agreed to focus on these projects and align on priorities.
