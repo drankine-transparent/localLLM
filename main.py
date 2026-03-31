@@ -166,7 +166,7 @@ async def extract_tasks(body: TextInput):
                 print(f"[EXTRACT] Cancelled after {idx} chunk(s)")
                 break
             chunk_start = time.monotonic()
-            prompt = prompts.build_extraction_prompt(chunk, llm.get_provider())
+            prompt = prompts.build_extraction_prompt(chunk, llm.get_provider(), body.filename)
             _extract_status["current_chunk"] = {"index": idx + 1, "chars": 0, "tokens": 0}
 
             def on_progress(chars: int, tokens: int, _idx: int = idx) -> None:
@@ -367,6 +367,40 @@ def _insert_under_section(content: str, section_header: str, snippet: str) -> st
     return content.rstrip() + "\n" + snippet + "\n"
 
 
+def _insert_glossary_row_in_section(content: str, row: str, section: str = "## Internal Terms") -> str:
+    """Insert a table row into a specific glossary section.
+
+    Finds the section header, then its separator (|---|), and inserts
+    after all data rows that follow the separator.
+    """
+    lines = content.split("\n")
+    # Find the section header
+    section_idx = -1
+    for i, line in enumerate(lines):
+        if line.strip() == section:
+            section_idx = i
+            break
+    if section_idx < 0:
+        # Section not found — fall back to last table
+        return _insert_glossary_row(content, row)
+    # Find the separator after this section header
+    sep_idx = -1
+    for i in range(section_idx + 1, len(lines)):
+        if lines[i].strip().startswith("|--"):
+            sep_idx = i
+            break
+        if lines[i].strip().startswith("## ") and i > section_idx:
+            break  # Hit next section without finding separator
+    if sep_idx < 0:
+        return _insert_glossary_row(content, row)
+    # Insert after all data rows following the separator
+    insert_at = sep_idx + 1
+    while insert_at < len(lines) and lines[insert_at].strip().startswith("|"):
+        insert_at += 1
+    lines.insert(insert_at, row)
+    return "\n".join(lines)
+
+
 def _insert_glossary_row(content: str, row: str) -> str:
     """Insert a table row into the last table in the glossary.
 
@@ -388,12 +422,33 @@ def _insert_glossary_row(content: str, row: str) -> str:
 @app.post("/api/memory/learn")
 async def learn_memory(body: LearnInput):
     try:
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        source_label = body.source or "Manual"
+        attribution = f"*{source_label} · {ts}*"
+
+        # Fast path: glossary entries from suggestion cards — build row server-side, skip LLM
+        if body.dest_hint == "glossary.md":
+            existing = memory.read_file("glossary.md") or memory.GLOSSARY_TEMPLATE
+            # Parse label and detail from "Term: label — detail" format
+            text = body.text
+            label, detail = "", text
+            if " — " in text:
+                parts = text.split(" — ", 1)
+                label = _re.sub(r"^(Term|Person|Project|Fact):\s*", "", parts[0]).strip()
+                detail = parts[1].strip()
+            elif ": " in text:
+                label = text.split(": ", 1)[-1].strip()
+            row = f"| {label} | {detail} · {ts} |"
+            print(f"[LEARN] glossary fast path: {row}")
+            full_content = _insert_glossary_row_in_section(existing, row, "## Internal Terms")
+            saved = memory.write_file("glossary.md", full_content)
+            return {"saved": True, "file": "glossary.md", "size": saved["size"]}
+
+        # Standard path: call LLM for routing and content
         claude_md = prompts.truncate(memory.get_hot_cache(), 2000)
         glossary_md = prompts.truncate(memory.get_glossary(), 2000)
         existing_files = "\n".join(f"- {f['path']}" for f in memory.list_files()) or "none"
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-        source_label = body.source or "Manual"
-        learn_text = f"{body.text}\nSource: {source_label} · {ts}"
+        learn_text = body.text
         if body.dest_hint:
             learn_text += f"\nPreferred destination: {body.dest_hint}"
         prompt = prompts.MEMORY_LEARN.format(
@@ -408,39 +463,18 @@ async def learn_memory(body: LearnInput):
         parsed = llm.parse_json(result)
         if not isinstance(parsed, dict) or "file" not in parsed or "append" not in parsed:
             raise ValueError(f"Unexpected LLM response: {result[:200]}")
-        # If the caller specified a destination, use it — don't trust LLM routing
         if body.dest_hint:
             parsed["file"] = body.dest_hint
         target_file = parsed["file"]
         existing = memory.read_file(target_file) or ""
         snippet = parsed["append"].strip()
-        attribution = f"*{source_label} · {ts}*"
+        # Strip any attribution the LLM might have echoed (server adds its own)
+        for line in snippet.split("\n"):
+            if line.strip().startswith("*") and "·" in line and line.strip().endswith("*"):
+                snippet = snippet.replace(line, "").strip()
 
-        # Build snippet with attribution
-        if target_file == "glossary.md" and "|" in snippet:
-            # Glossary: strip to correct column count, add date to last cell
-            # Count columns in the snippet vs the existing table header
-            snippet_cols = len([c for c in snippet.split("|") if c.strip()])
-            # Find the last table header to get expected column count
-            header_cols = 2  # default
-            for line in existing.split("\n"):
-                if line.strip().startswith("|") and not line.strip().startswith("|--"):
-                    header_cols = len([c for c in line.split("|") if c.strip()])
-            # If LLM returned too many columns, trim to match header
-            if snippet_cols > header_cols and snippet.rstrip().endswith("|"):
-                parts = [c for c in snippet.split("|") if c.strip()]
-                parts = parts[:header_cols]
-                # Embed date in last column
-                parts[-1] = parts[-1].strip() + f" · {ts}"
-                new_snippet = "| " + " | ".join(p.strip() for p in parts) + " |"
-            elif snippet.rstrip().endswith("|"):
-                trimmed = snippet.rstrip()[:-1].rstrip()
-                new_snippet = f"{trimmed} · {ts} |"
-            else:
-                new_snippet = snippet
-        else:
-            # All other files: attribution on its own line
-            new_snippet = snippet + f"\n{attribution}"
+        # All non-glossary files: attribution on its own line
+        new_snippet = snippet + f"\n{attribution}"
 
         print(f"[LEARN] file={target_file} snippet_len={len(snippet)} attribution={attribution}")
 

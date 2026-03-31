@@ -11,8 +11,14 @@ def truncate(text: str, max_chars: int = MAX_INPUT_CHARS) -> str:
 
 TASK_EXTRACTION = """Extract tasks from this meeting transcript as a JSON array.
 
-STEP 1 — Find the meeting name and date from the transcript header or content.
-Format the tag as: `Meeting Name · YYYY-MM-DD`
+STEP 1 — Determine the meeting name and date.
+{filename_hint}Use these sources in order of priority:
+1. YAML frontmatter (title/date fields) or markdown heading at the top
+2. The filename hint above (strip extensions, replace underscores/hyphens with spaces)
+3. Participants and topic from the first few lines of conversation
+4. If you still cannot determine the name, use the main topic discussed + participants (e.g. "Oliver and Darren sync")
+NEVER use the literal placeholder "Meeting Name · YYYY-MM-DD" — always derive a real name.
+Format the tag as: `Descriptive Meeting Name · YYYY-MM-DD`
 
 STEP 2 — For each task, decide who owns it:
 - Darren / Dee / Darren Rankine owns it → section = "active"
@@ -44,9 +50,10 @@ Transcript:
 
 
 
-def build_extraction_prompt(text: str, provider: str = "lmstudio") -> str:
+def build_extraction_prompt(text: str, provider: str = "lmstudio", filename: str | None = None) -> str:
     """Format the extraction prompt, stripping /no_think for non-local providers."""
-    prompt = TASK_EXTRACTION.format(text=text)
+    hint = f"Filename: {filename}\n" if filename else ""
+    prompt = TASK_EXTRACTION.format(text=text, filename_hint=hint)
     if provider != "lmstudio":
         prompt = prompt.replace("\n\n/no_think\n\n", "\n\n")
     return prompt
@@ -103,8 +110,8 @@ Existing files (use these exact paths if relevant — do not create duplicates):
 
 Rules:
 - New acronym or term → file: glossary.md, append: a markdown table row "| Term | Meaning | Context |"
-- New person info → file: people/firstname-lastname.md, append: a short markdown profile (name, role, context)
-- New project info → file: projects/project-name.md, append: project name, description, status
+- New person info → file: people/firstname-lastname.md, append: "# Full Name\n**Role:** their actual role\n**Context:** what they do or discussed"
+- New project info → file: projects/project-name.md, append: "# Project Name\ndescription of what it is and current status"
 - Preference or fact about Dee/Darren → file: profile.md, append: "**Fact:** label — detail"
 - Keep the append value concise (1-4 lines). Do NOT include existing file content.
 - File paths are relative to the memory root. NEVER prefix with "memory/" — correct: "people/brett.md", wrong: "memory/people/brett.md"
