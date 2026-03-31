@@ -24,6 +24,7 @@ Detailed inventory of everything in the app. Updated whenever features are added
 - **Complete/delete** — Checkbox to mark done, delete button per card
 - **Assignee badges** — `Person:` prefix stripped from title and shown as a coloured badge
 - **Board summary strip** — Stat cards above the board showing counts per section
+- **Clear Board** — Deletes all tasks and extraction logs to start fresh (confirmation required)
 
 ## Memory System
 
@@ -33,9 +34,12 @@ Detailed inventory of everything in the app. Updated whenever features are added
 - **People directory** — Individual markdown files per person in `people/`
 - **Projects directory** — Individual markdown files per project in `projects/`
 - **Append-only writes** — Server controls file writes; LLM only generates the snippet to append
-- **Section-aware append** — Profile facts insert under `## Preferences & Facts`, preserving section structure
-- **Source attribution** — Server stamps every memory entry with source label and UTC timestamp (except glossary table rows)
+- **Section-aware append** — Profile facts insert under `## Preferences & Facts`; glossary rows insert inside the correct table after the separator
+- **Profile structure protection** — If profile.md loses section headers, server rebuilds from template before inserting
+- **Glossary column matching** — LLM output trimmed to match table column count; date embedded in last cell
+- **Source attribution** — Server stamps every memory entry with source and UTC timestamp
 - **Duplicate prevention** — Existing file list passed to LLM in suggest and learn prompts to avoid re-creating files
+- **Reset Memory** — Resets profile.md and glossary.md to empty templates, deletes all people/ and projects/ files (confirmation required)
 
 ## Memory Suggestions
 
@@ -89,7 +93,7 @@ Detailed inventory of everything in the app. Updated whenever features are added
 | `test_status_includes_current_chunk_field` | Extract status includes current_chunk when running |
 | `test_status_current_chunk_none_when_idle` | Extract status current_chunk is null when idle |
 
-### E2E Playwright tests (14) — `tests/e2e/`
+### E2E Playwright tests (17) — `tests/e2e/`
 
 **Smoke tests** (`test_ui.py`):
 | Test | What it covers |
@@ -112,10 +116,13 @@ Detailed inventory of everything in the app. Updated whenever features are added
 | `test_meeting_view_section_collapse` | Collapse/expand accordion sections in meeting view |
 | `test_memory_file_appears_in_panel` | Written memory file appears in accordion, preview renders content |
 | `test_memory_append_preserves_structure` | Append to profile.md preserves section headers |
+| `test_memory_learn_adds_attribution` | Attribution (source + date) visible in memory file preview |
+| `test_memory_learn_api_adds_attribution` | Learn endpoint adds attribution via API (LLM-dependent, skips if unavailable) |
+| `test_profile_structure_rebuilt_when_lost` | Learn endpoint rebuilds profile.md template when structure is lost (LLM-dependent) |
 
 ### Running tests
 ```bash
-pytest tests/ -v              # all 20 tests
+pytest tests/ -v              # all 24 tests
 pytest tests/test_streaming.py -v   # unit tests only (no server needed)
 pytest tests/e2e/ -v          # e2e tests only (needs server on port 8000)
 ```

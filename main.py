@@ -113,6 +113,14 @@ async def get_tasks():
     return tasks.parse()
 
 
+@app.delete("/api/tasks")
+async def clear_tasks():
+    # Also clear extraction logs — they reference task IDs that no longer exist
+    if LOG_PATH.exists():
+        LOG_PATH.write_text("")
+    return tasks.clear_all()
+
+
 @app.post("/api/tasks")
 async def create_task(body: TaskCreate):
     task = tasks.add_task(body.title, body.section, body.context)
@@ -319,6 +327,13 @@ async def delete_subtask(task_id: str, sub_idx: int):
 
 # --- Memory ---
 
+@app.delete("/api/memory")
+async def reset_memory():
+    """Reset all memory files to empty templates, delete people/ and projects/ files."""
+    memory.reset_all()
+    return {"reset": True}
+
+
 @app.get("/api/memory")
 async def list_memory():
     return memory.list_files()
@@ -353,21 +368,21 @@ def _insert_under_section(content: str, section_header: str, snippet: str) -> st
 
 
 def _insert_glossary_row(content: str, row: str) -> str:
-    """Insert a table row into the last table section of the glossary.
+    """Insert a table row into the last table in the glossary.
 
-    Finds the last line that starts with | and inserts after it.
-    This keeps rows inside their table instead of appending at EOF.
+    Finds the last separator (|---|) and inserts after all data rows
+    that follow it — never between header and separator.
     """
     lines = content.split("\n")
-    last_table_line = -1
-    for i, line in enumerate(lines):
-        if line.strip().startswith("|") and not line.strip().startswith("|--"):
-            last_table_line = i
-    if last_table_line >= 0:
-        lines.insert(last_table_line + 1, row)
-        return "\n".join(lines)
-    # Fallback: append at end
-    return content.rstrip() + "\n" + row + "\n"
+    separators = [i for i, l in enumerate(lines) if l.strip().startswith("|--")]
+    if not separators:
+        return content.rstrip() + "\n" + row + "\n"
+    last_sep = separators[-1]
+    insert_at = last_sep + 1
+    while insert_at < len(lines) and lines[insert_at].strip().startswith("|"):
+        insert_at += 1
+    lines.insert(insert_at, row)
+    return "\n".join(lines)
 
 
 @app.post("/api/memory/learn")
@@ -403,12 +418,26 @@ async def learn_memory(body: LearnInput):
 
         # Build snippet with attribution
         if target_file == "glossary.md" and "|" in snippet:
-            # Glossary table row: embed attribution in last cell
-            if snippet.rstrip().endswith("|"):
+            # Glossary: strip to correct column count, add date to last cell
+            # Count columns in the snippet vs the existing table header
+            snippet_cols = len([c for c in snippet.split("|") if c.strip()])
+            # Find the last table header to get expected column count
+            header_cols = 2  # default
+            for line in existing.split("\n"):
+                if line.strip().startswith("|") and not line.strip().startswith("|--"):
+                    header_cols = len([c for c in line.split("|") if c.strip()])
+            # If LLM returned too many columns, trim to match header
+            if snippet_cols > header_cols and snippet.rstrip().endswith("|"):
+                parts = [c for c in snippet.split("|") if c.strip()]
+                parts = parts[:header_cols]
+                # Embed date in last column
+                parts[-1] = parts[-1].strip() + f" · {ts}"
+                new_snippet = "| " + " | ".join(p.strip() for p in parts) + " |"
+            elif snippet.rstrip().endswith("|"):
                 trimmed = snippet.rstrip()[:-1].rstrip()
-                new_snippet = f"{trimmed} · {source_label} {ts} |"
+                new_snippet = f"{trimmed} · {ts} |"
             else:
-                new_snippet = snippet + f"\n{attribution}"
+                new_snippet = snippet
         else:
             # All other files: attribution on its own line
             new_snippet = snippet + f"\n{attribution}"

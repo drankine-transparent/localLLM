@@ -1190,7 +1190,9 @@
      TASKS PANEL
 ══════════════════════════════════════ -->
 <div class="panel" id="panel-tasks">
-
+  <div style="display:flex;justify-content:flex-end;padding:4px 8px 0;">
+    <button class="btn-ghost" onclick="clearBoard()" title="Delete all tasks and start fresh" style="font-size:11px;color:var(--text-muted);">Clear Board</button>
+  </div>
   <div class="board-summary-strip" id="boardSummaryStrip"></div>
   <div class="board" id="board">
     <!-- columns rendered by JS -->
@@ -1295,6 +1297,9 @@
     <div class="memory-sidebar">
       <div class="memory-search-wrap">
         <input id="memorySearch" type="text" placeholder="Filter…" oninput="filterMemoryTree()" />
+      </div>
+      <div style="display:flex;justify-content:flex-end;padding:0 10px 6px;">
+        <button class="btn-ghost" onclick="resetMemory()" title="Reset all memories to empty templates" style="font-size:11px;color:var(--text-muted);">Reset Memory</button>
       </div>
       <div class="memory-cards-scroll" id="memoryTree"></div>
     </div>
@@ -1581,6 +1586,24 @@
     const r = await fetch('/api/tasks');
     tasksData = await r.json();
     renderBoard();
+  }
+
+  async function clearBoard() {
+    if (!confirm('Delete all tasks, logs, and start fresh?')) return;
+    await fetch('/api/tasks', { method: 'DELETE' });
+    toast('Board and logs cleared');
+    loadTasks();
+    loadLogs();
+  }
+
+  async function resetMemory() {
+    if (!confirm('Reset all memories to empty templates? People and project files will be deleted.')) return;
+    await fetch('/api/memory', { method: 'DELETE' });
+    toast('Memory reset to empty templates');
+    loadMemoryTree();
+    currentMemoryFile = null;
+    document.getElementById('memoryPreview').innerHTML = '';
+    document.getElementById('memoryEditor').value = '';
   }
 
   function renderBoard() {

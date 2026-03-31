@@ -61,6 +61,17 @@ def _ensure_structure():
         GLOSSARY_MD.write_text(GLOSSARY_TEMPLATE)
 
 
+def reset_all():
+    """Reset memory to empty state: templates for profile/glossary, clear people/projects."""
+    CLAUDE_MD.write_text(CLAUDE_MD_TEMPLATE)
+    GLOSSARY_MD.write_text(GLOSSARY_TEMPLATE)
+    for subdir in ["people", "projects"]:
+        d = MEMORY_DIR / subdir
+        if d.exists():
+            for f in d.glob("*.md"):
+                f.unlink()
+
+
 def list_files() -> list[dict]:
     """List all memory files as a tree structure."""
     _ensure_structure()

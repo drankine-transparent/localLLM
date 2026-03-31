@@ -17,6 +17,12 @@ TEMPLATE = """# Tasks
 ## Done
 """
 
+def clear_all():
+    """Reset TASKS.md to empty template."""
+    TASKS_PATH.write_text(TEMPLATE)
+    return {"cleared": True}
+
+
 SECTION_MAP = {
     "active": "Active",
     "waiting": "Waiting On",
