@@ -999,6 +999,36 @@
       cursor: pointer; font-family: inherit;
     }
     .btn-suggestion-skip:hover { color: var(--text-primary); }
+    .btn-suggestion-edit {
+      font-size: 11px; padding: 4px 10px; background: transparent;
+      border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary);
+      cursor: pointer; font-family: inherit;
+    }
+    .btn-suggestion-edit:hover { color: var(--text-primary); border-color: var(--accent); }
+    .suggestion-bulk-actions { margin-left: auto; display: flex; gap: 6px; }
+    .btn-suggestion-add-all, .btn-suggestion-skip-all {
+      font-size: 11px; padding: 3px 8px; border-radius: 6px; cursor: pointer;
+      font-family: inherit; border: none;
+    }
+    .btn-suggestion-add-all {
+      background: var(--accent); color: white;
+    }
+    .btn-suggestion-add-all:hover { background: var(--accent-hover); }
+    .btn-suggestion-add-all:disabled { opacity: 0.5; cursor: default; }
+    .btn-suggestion-skip-all {
+      background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+    }
+    .btn-suggestion-skip-all:hover { color: var(--text-primary); }
+    .suggestion-edit-input {
+      width: 100%; padding: 4px 6px; font-size: 13px; font-family: inherit;
+      border: 1px solid var(--accent); border-radius: 4px; background: var(--bg-main);
+      color: var(--text-primary);
+    }
+    .suggestion-edit-textarea {
+      width: 100%; padding: 4px 6px; font-size: 12px; font-family: inherit;
+      border: 1px solid var(--accent); border-radius: 4px; background: var(--bg-main);
+      color: var(--text-primary); resize: vertical; min-height: 40px;
+    }
 
     .chat-model-label {
       font-size: 11px; color: var(--text-muted);
@@ -1250,6 +1280,10 @@
       <div class="memory-suggestions-header">
         <span>Memory suggestions</span>
         <span id="suggestionBadge" class="suggestion-badge"></span>
+        <div class="suggestion-bulk-actions">
+          <button class="btn-suggestion-add-all" onclick="addAllSuggestions()">Add All</button>
+          <button class="btn-suggestion-skip-all" onclick="skipAllSuggestions()">Skip All</button>
+        </div>
       </div>
       <div id="suggestionCards"></div>
     </div>
@@ -1910,6 +1944,8 @@
       const dest = destFromSuggestion(s);
       const card = document.createElement('div');
       card.className = 'suggestion-card';
+      // Store original data on the card for edit/add
+      card._data = { typeLabel, dest, source, label: s.label, detail: s.detail, type: s.type };
       card.innerHTML = `
         <span class="suggestion-type type-${esc(s.type || 'fact')}">${typeLabel}</span>
         <div class="suggestion-content">
@@ -1919,40 +1955,109 @@
         </div>
         <div class="suggestion-actions">
           <button class="btn-suggestion-add">Add</button>
+          <button class="btn-suggestion-edit">Edit</button>
           <button class="btn-suggestion-skip">Skip</button>
         </div>`;
-      const addBtn = card.querySelector('.btn-suggestion-add');
-      addBtn.onclick = async () => {
-        addBtn.disabled = true;
-        addBtn.textContent = 'Adding…';
-        activityShow();
-        const runEl = activityLogRunning(`[${fmtTime(new Date())}] Adding memory: ${s.label}…`);
-        try {
-          const r = await fetch('/api/memory/learn', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ text: `${typeLabel}: ${s.label} — ${s.detail}`, dest_hint: dest, source }),
-          });
-          const d = await r.json();
-          if (!r.ok) throw new Error(d.detail);
-          if (runEl) { runEl.remove(); _activityRunningEl = null; }
-          activityLogDone(`[${fmtTime(new Date())}] Memory saved → ${d.file}`);
-          activitySetStatus('done', `Memory saved → ${d.file}`);
-          addBtn.textContent = 'Added';
-          toast(`Saved to ${d.file}`);
-          setTimeout(() => dismissSuggestionCard(card), 800);
-        } catch (e) {
-          if (runEl) { runEl.remove(); _activityRunningEl = null; }
-          activityLogError(`[${fmtTime(new Date())}] Error saving memory: ${e.message}`);
-          activitySetStatus('done', `Error: ${e.message}`);
-          addBtn.disabled = false;
-          addBtn.textContent = 'Add';
-          toast('Error: ' + e.message);
-        }
-      };
+      card.querySelector('.btn-suggestion-add').onclick = () => addSuggestionCard(card);
+      card.querySelector('.btn-suggestion-edit').onclick = () => editSuggestionCard(card);
       card.querySelector('.btn-suggestion-skip').onclick = () => dismissSuggestionCard(card);
       cardsEl.appendChild(card);
     });
     container.style.display = '';
+  }
+
+  async function addSuggestionCard(card) {
+    const d = card._data;
+    const addBtn = card.querySelector('.btn-suggestion-add');
+    if (addBtn) { addBtn.disabled = true; addBtn.textContent = 'Adding…'; }
+    activityShow();
+    const runEl = activityLogRunning(`[${fmtTime(new Date())}] Adding memory: ${d.label}…`);
+    try {
+      const r = await fetch('/api/memory/learn', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ text: `${d.typeLabel}: ${d.label} — ${d.detail}`, dest_hint: d.dest, source: d.source }),
+      });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.detail);
+      if (runEl) { runEl.remove(); _activityRunningEl = null; }
+      activityLogDone(`[${fmtTime(new Date())}] Memory saved → ${res.file}`);
+      activitySetStatus('done', `Memory saved → ${res.file}`);
+      if (addBtn) addBtn.textContent = 'Added';
+      toast(`Saved to ${res.file}`);
+      setTimeout(() => dismissSuggestionCard(card), 800);
+    } catch (e) {
+      if (runEl) { runEl.remove(); _activityRunningEl = null; }
+      activityLogError(`[${fmtTime(new Date())}] Error saving memory: ${e.message}`);
+      activitySetStatus('done', `Error: ${e.message}`);
+      if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add'; }
+      toast('Error: ' + e.message);
+    }
+  }
+
+  function editSuggestionCard(card) {
+    const d = card._data;
+    const contentEl = card.querySelector('.suggestion-content');
+    const actionsEl = card.querySelector('.suggestion-actions');
+    // Replace content with editable fields
+    contentEl.innerHTML = `
+      <input class="suggestion-edit-input" value="${esc(d.label)}" />
+      <textarea class="suggestion-edit-textarea">${esc(d.detail)}</textarea>
+      <div class="suggestion-dest">→ ${esc(d.dest)}</div>`;
+    // Replace buttons with Save/Cancel
+    actionsEl.innerHTML = `
+      <button class="btn-suggestion-add">Save</button>
+      <button class="btn-suggestion-skip">Cancel</button>`;
+    actionsEl.querySelector('.btn-suggestion-add').onclick = () => {
+      // Update card data with edited values
+      d.label = contentEl.querySelector('.suggestion-edit-input').value.trim();
+      d.detail = contentEl.querySelector('.suggestion-edit-textarea').value.trim();
+      card._data = d;
+      // Restore display mode with updated values
+      contentEl.innerHTML = `
+        <div class="suggestion-label">${esc(d.label)}</div>
+        <div class="suggestion-detail">${esc(d.detail)}</div>
+        <div class="suggestion-dest">→ ${esc(d.dest)}</div>`;
+      actionsEl.innerHTML = `
+        <button class="btn-suggestion-add">Add</button>
+        <button class="btn-suggestion-edit">Edit</button>
+        <button class="btn-suggestion-skip">Skip</button>`;
+      actionsEl.querySelector('.btn-suggestion-add').onclick = () => addSuggestionCard(card);
+      actionsEl.querySelector('.btn-suggestion-edit').onclick = () => editSuggestionCard(card);
+      actionsEl.querySelector('.btn-suggestion-skip').onclick = () => dismissSuggestionCard(card);
+    };
+    actionsEl.querySelector('.btn-suggestion-skip').onclick = () => {
+      // Cancel edit — restore original display
+      contentEl.innerHTML = `
+        <div class="suggestion-label">${esc(d.label)}</div>
+        <div class="suggestion-detail">${esc(d.detail)}</div>
+        <div class="suggestion-dest">→ ${esc(d.dest)}</div>`;
+      actionsEl.innerHTML = `
+        <button class="btn-suggestion-add">Add</button>
+        <button class="btn-suggestion-edit">Edit</button>
+        <button class="btn-suggestion-skip">Skip</button>`;
+      actionsEl.querySelector('.btn-suggestion-add').onclick = () => addSuggestionCard(card);
+      actionsEl.querySelector('.btn-suggestion-edit').onclick = () => editSuggestionCard(card);
+      actionsEl.querySelector('.btn-suggestion-skip').onclick = () => dismissSuggestionCard(card);
+    };
+  }
+
+  async function addAllSuggestions() {
+    const btn = document.querySelector('.btn-suggestion-add-all');
+    btn.disabled = true; btn.textContent = 'Adding…';
+    const cards = [...document.getElementById('suggestionCards').children];
+    for (const card of cards) {
+      await addSuggestionCard(card);
+      await new Promise(r => setTimeout(r, 300)); // Small delay between API calls
+    }
+    btn.disabled = false; btn.textContent = 'Add All';
+  }
+
+  function skipAllSuggestions() {
+    const cards = [...document.getElementById('suggestionCards').children];
+    cards.forEach(card => card.remove());
+    document.getElementById('suggestionBadge').textContent = '0';
+    document.getElementById('memorySuggestions').style.display = 'none';
+    activitySetStatus('done', 'All suggestions skipped');
   }
 
   function dismissSuggestionCard(card) {
@@ -1972,12 +2077,16 @@
     document.getElementById('suggestionCards').innerHTML = '';
   }
 
+  let _suggestAbort = null;
+
   async function fetchMemorySuggestions(text, meetingName) {
     try {
+      _suggestAbort = new AbortController();
       activityLogRunning(`[${fmtTime(new Date())}] Scanning for memory suggestions…`);
       const r = await fetch('/api/memory/suggest', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ text }),
+        signal: _suggestAbort.signal,
       });
       const suggestions = await r.json();
       if (Array.isArray(suggestions) && suggestions.length) {
@@ -2069,6 +2178,10 @@
     const stopBtn = document.getElementById('extractStopBtn');
     stopBtn.disabled = true;
     stopBtn.textContent = 'Stopping…';
+    // Cancel memory suggestion scan if running
+    if (_suggestAbort) { _suggestAbort.abort(); _suggestAbort = null; }
+    document.getElementById('memorySuggestions').style.display = 'none';
+    document.getElementById('suggestionCards').innerHTML = '';
     try {
       await fetch('/api/tasks/extract/cancel', { method: 'POST' });
       activityLogInfo(`[${fmtTime(new Date())}] Cancel requested — waiting for current chunk to finish…`);

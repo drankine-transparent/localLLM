@@ -374,7 +374,19 @@ async def learn_memory(body: LearnInput):
             new_snippet = parsed["append"].strip()
         else:
             new_snippet = parsed["append"].strip() + f"\n*{source_label} · {ts}*"
-        full_content = (existing.rstrip() + "\n\n" + new_snippet + "\n") if existing else (new_snippet + "\n")
+        # Profile.md: insert under ## Preferences & Facts to preserve section structure
+        if target_file == "profile.md" and "## Preferences & Facts" in existing:
+            section_header = "## Preferences & Facts"
+            idx = existing.index(section_header) + len(section_header)
+            rest = existing[idx:]
+            next_section = rest.find("\n## ")
+            if next_section >= 0:
+                insert_at = idx + next_section
+                full_content = existing[:insert_at].rstrip() + "\n" + new_snippet + "\n" + existing[insert_at:]
+            else:
+                full_content = existing.rstrip() + "\n" + new_snippet + "\n"
+        else:
+            full_content = (existing.rstrip() + "\n\n" + new_snippet + "\n") if existing else (new_snippet + "\n")
         saved = memory.write_file(target_file, full_content)
         return {"saved": True, "file": target_file, "size": saved["size"]}
     except Exception as e:
